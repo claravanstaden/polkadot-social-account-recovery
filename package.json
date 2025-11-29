@@ -1,5 +1,5 @@
 {
-  "name": "polkadot-wallet-app",
+  "name": "polkadot-social-account-recovery",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@polkadot/extension-dapp": "^0.62.6",
+    "@polkadot/util": "^13.5.9",
+    "@polkadot/util-crypto": "^13.5.9",
     "next": "16.0.5",
     "react": "19.2.0",
     "react-dom": "19.2.0"
