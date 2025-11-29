@@ -14,6 +14,11 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Recovery configuration
+  const [friends, setFriends] = useState<string[]>(['']);
+  const [threshold, setThreshold] = useState<number>(2);
+  const [refuteDuration, setRefuteDuration] = useState<number>(7);
+
   useEffect(() => {
     if (isWalletConnected && walletSource) {
       loadAllAccounts();
@@ -21,6 +26,9 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
       // Reset accounts when wallet is disconnected
       setAllAccounts([]);
       setSelectedAccounts(new Set());
+      setFriends(['']);
+      setThreshold(2);
+      setRefuteDuration(7);
     }
   }, [isWalletConnected, walletSource]);
 
@@ -55,18 +63,59 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
     setSelectedAccounts(newSelection);
   };
 
+  const addFriendInput = () => {
+    setFriends([...friends, '']);
+  };
+
+  const removeFriendInput = (index: number) => {
+    const newFriends = friends.filter((_, i) => i !== index);
+    setFriends(newFriends.length > 0 ? newFriends : ['']);
+  };
+
+  const updateFriend = (index: number, value: string) => {
+    const newFriends = [...friends];
+    newFriends[index] = value;
+    setFriends(newFriends);
+  };
+
   const handleSetupRecovery = () => {
+    setError(null);
+
     if (selectedAccounts.size === 0) {
       setError('Please select at least one account to make recoverable');
       return;
     }
 
+    const validFriends = friends.filter(f => f.trim() !== '');
+    if (validFriends.length === 0) {
+      setError('Please add at least one friend account');
+      return;
+    }
+
+    if (threshold < 1 || threshold > validFriends.length) {
+      setError(`Threshold must be between 1 and ${validFriends.length} (number of friends)`);
+      return;
+    }
+
+    if (refuteDuration < 1) {
+      setError('Refute duration must be at least 1 day');
+      return;
+    }
+
     // TODO: Implement the actual social recovery setup logic here
-    console.log('Setting up social recovery for accounts:', {
+    console.log('Setting up social recovery:', {
       recoverableAccounts: Array.from(selectedAccounts),
+      friends: validFriends,
+      threshold,
+      refuteDurationDays: refuteDuration,
     });
 
-    alert(`Setting up social recovery for ${selectedAccounts.size} account(s)`);
+    alert(
+      `Setting up social recovery for ${selectedAccounts.size} account(s)\n` +
+      `Friends: ${validFriends.length}\n` +
+      `Threshold: ${threshold}\n` +
+      `Refute Duration: ${refuteDuration} days`
+    );
   };
 
   if (!isWalletConnected) {
@@ -83,9 +132,10 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
     <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-2 text-gray-800">Setup Social Recovery</h2>
       <p className="text-sm text-gray-600 mb-6">
-        Select which accounts you want to make recoverable
+        Select accounts to make recoverable and configure recovery settings
       </p>
 
+      {/* Account Selection */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-medium text-gray-700">
@@ -114,14 +164,14 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
             No accounts found. Please create accounts in your wallet extension.
           </div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2">
             {allAccounts.map((acc) => {
               const isSelected = selectedAccounts.has(acc.address);
               return (
                 <button
                   key={acc.address}
                   onClick={() => toggleAccountSelection(acc.address)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
                     isSelected
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
@@ -154,9 +204,6 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-gray-800">{acc.meta.name}</div>
                       <div className="text-xs text-gray-500 truncate font-mono">{acc.address}</div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Wallet: {acc.meta.source}
-                      </div>
                     </div>
                   </div>
                 </button>
@@ -166,13 +213,92 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
         )}
       </div>
 
+      {/* Recovery Configuration */}
+      <div className="border-t pt-6 space-y-6">
+        <h3 className="text-lg font-semibold text-gray-800">Recovery Configuration</h3>
+
+        {/* Friends List */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Friend Account IDs (Guardians)
+          </label>
+          <p className="text-xs text-gray-500 mb-3">
+            Add the account addresses of friends who can help recover your account
+          </p>
+          <div className="space-y-2">
+            {friends.map((friend, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={friend}
+                  onChange={(e) => updateFriend(index, e.target.value)}
+                  placeholder="Enter friend's account address..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                />
+                {friends.length > 1 && (
+                  <button
+                    onClick={() => removeFriendInput(index)}
+                    className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={addFriendInput}
+            className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            + Add Another Friend
+          </button>
+        </div>
+
+        {/* Threshold */}
+        <div>
+          <label htmlFor="threshold" className="block text-sm font-medium text-gray-700 mb-2">
+            Recovery Threshold
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Number of friends required to approve a recovery
+          </p>
+          <input
+            id="threshold"
+            type="number"
+            min="1"
+            max={friends.filter(f => f.trim()).length || 1}
+            value={threshold}
+            onChange={(e) => setThreshold(parseInt(e.target.value) || 1)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Refute Duration */}
+        <div>
+          <label htmlFor="refuteDuration" className="block text-sm font-medium text-gray-700 mb-2">
+            Refute Duration (days)
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Waiting period before an approved recovery takes effect
+          </p>
+          <input
+            id="refuteDuration"
+            type="number"
+            min="1"
+            value={refuteDuration}
+            onChange={(e) => setRefuteDuration(parseInt(e.target.value) || 1)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
       <button
         onClick={handleSetupRecovery}
         disabled={selectedAccounts.size === 0}
-        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+        className="w-full mt-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-colors"
       >
-        Make {selectedAccounts.size > 0 ? `${selectedAccounts.size}` : ''} Account
-        {selectedAccounts.size !== 1 ? 's' : ''} Recoverable
+        Setup Recovery for {selectedAccounts.size > 0 ? `${selectedAccounts.size}` : ''} Account
+        {selectedAccounts.size !== 1 ? 's' : ''}
       </button>
 
       {error && (
@@ -182,17 +308,13 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
       )}
 
       {selectedAccounts.size > 0 && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-gray-700">
-          <p className="font-semibold mb-2">Accounts to be made recoverable:</p>
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm text-gray-700">
+          <p className="font-semibold mb-2">Summary:</p>
           <ul className="space-y-1">
-            {Array.from(selectedAccounts).map(addr => {
-              const acc = allAccounts.find(a => a.address === addr);
-              return (
-                <li key={addr} className="truncate">
-                  • {acc?.meta.name} <span className="text-gray-500 text-xs">({addr.slice(0, 8)}...{addr.slice(-8)})</span>
-                </li>
-              );
-            })}
+            <li>• Accounts to make recoverable: {selectedAccounts.size}</li>
+            <li>• Friends (guardians): {friends.filter(f => f.trim()).length}</li>
+            <li>• Threshold: {threshold} friend(s) needed to approve recovery</li>
+            <li>• Refute duration: {refuteDuration} day(s)</li>
           </ul>
         </div>
       )}

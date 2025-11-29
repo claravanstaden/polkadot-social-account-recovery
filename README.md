@@ -6,10 +6,15 @@ A Next.js application for linking multiple Polkadot accounts together for social
 
 - Support for multiple wallet providers (Polkadot.js, Talisman, SubWallet, Nova Wallet)
 - Connect and authenticate with wallet extensions
-- View all accounts from all connected wallets
+- View accounts from the connected wallet
 - Multi-select interface to choose which accounts should be recoverable
 - Select All / Deselect All functionality
-- Visual checkbox interface with account details
+- Configure social recovery settings:
+  - Add multiple friend/guardian account addresses
+  - Set recovery threshold (number of friends needed to approve)
+  - Set refute duration (waiting period in days)
+- Input validation for all recovery parameters
+- Visual summary of recovery configuration
 - Modern, responsive UI built with Tailwind CSS
 
 ## Prerequisites
@@ -43,11 +48,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## How to Use
 
 1. **Connect Wallet**: Choose a wallet provider (Polkadot.js, Talisman, SubWallet, or Nova Wallet) and click to connect
-2. **View All Accounts**: Once connected, all your accounts from all wallets will be displayed
+2. **View All Accounts**: Once connected, all your accounts from that wallet will be displayed
 3. **Select Accounts**: Check the boxes next to accounts you want to make recoverable
    - Use "Select All" to quickly select all accounts
    - Use "Deselect All" to clear your selection
-4. **Confirm**: Click "Make Accounts Recoverable" to set up social recovery for the selected accounts
+4. **Configure Recovery Settings**:
+   - **Friend Account IDs**: Add the account addresses of trusted friends who can help recover your account (guardians)
+   - **Recovery Threshold**: Set how many friends need to approve a recovery (must be ≤ number of friends)
+   - **Refute Duration**: Set the waiting period (in days) before an approved recovery takes effect
+5. **Setup Recovery**: Click "Setup Recovery" to configure social recovery for the selected accounts
 
 The selected accounts will be configured for social recovery, allowing them to be recovered through trusted guardians if access is lost.
 
