@@ -64,7 +64,7 @@ export default function WalletConnect({ onWalletConnected, onWalletDisconnected 
       <div className="w-full max-w-2xl mx-auto p-6 bg-green-50 rounded-lg border-2 border-green-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{connectedWallet.icon}</span>
+            <img src={connectedWallet.icon} alt={connectedWallet.name} className="w-10 h-10 rounded-lg" />
             <div>
               <div className="font-semibold text-gray-800">Connected to {connectedWallet.name}</div>
               <div className="text-sm text-gray-600">Your accounts are loaded below</div>
@@ -101,7 +101,7 @@ export default function WalletConnect({ onWalletConnected, onWalletDisconnected 
             className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-3">
-              <div className="text-3xl">{wallet.icon}</div>
+              <img src={wallet.icon} alt={wallet.name} className="w-10 h-10 rounded-lg" />
               <div className="flex-1">
                 <div className="font-semibold text-gray-800">{wallet.name}</div>
                 <div className="text-sm text-gray-500">{wallet.description}</div>

@@ -14,7 +14,7 @@ export const SUPPORTED_WALLETS: WalletConfig[] = [
     description: 'The original Polkadot wallet extension',
     extensionName: 'polkadot-js',
     installUrl: 'https://polkadot.js.org/extension/',
-    icon: '🔵', // Placeholder, can be replaced with actual logo
+    icon: '/icons/polkadotjs.png',
   },
   {
     id: 'talisman',
@@ -22,7 +22,7 @@ export const SUPPORTED_WALLETS: WalletConfig[] = [
     description: 'A better wallet for Polkadot & Ethereum',
     extensionName: 'talisman',
     installUrl: 'https://talisman.xyz/',
-    icon: '🌟',
+    icon: '/icons/talisman.png',
   },
   {
     id: 'subwallet',
@@ -30,7 +30,7 @@ export const SUPPORTED_WALLETS: WalletConfig[] = [
     description: 'The comprehensive Polkadot wallet',
     extensionName: 'subwallet-js',
     installUrl: 'https://subwallet.app/',
-    icon: '🔷',
+    icon: '/icons/subwallet.jpeg',
   },
   {
     id: 'nova',
@@ -38,6 +38,6 @@ export const SUPPORTED_WALLETS: WalletConfig[] = [
     description: 'Next-gen wallet for Polkadot ecosystem',
     extensionName: 'polkadot-js',
     installUrl: 'https://novawallet.io/',
-    icon: '⭐',
+    icon: '/icons/nova.png',
   },
 ];
