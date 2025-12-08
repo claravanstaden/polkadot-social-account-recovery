@@ -104,7 +104,6 @@ export default function WalletConnect({ onWalletConnected, onWalletDisconnected 
               <img src={wallet.icon} alt={wallet.name} className="w-10 h-10 rounded-lg" />
               <div className="flex-1">
                 <div className="font-semibold text-gray-800">{wallet.name}</div>
-                <div className="text-sm text-gray-500">{wallet.description}</div>
               </div>
               {isConnecting && (
                 <div className="text-blue-600 text-sm">Connecting...</div>
