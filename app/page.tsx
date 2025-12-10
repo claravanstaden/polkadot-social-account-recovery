@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import WalletConnect from '@/components/WalletConnect';
 import SocialRecoverySetup from '@/components/SocialRecoverySetup';
+import NavBar from '@/components/NavBar';
+import { useNetwork } from '@/lib/NetworkContext';
 
 export default function Home() {
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [walletSource, setWalletSource] = useState<string | null>(null);
+  const { selectedNetwork, getActiveWssUrl } = useNetwork();
 
   const handleWalletConnected = (walletName: string, extensionName: string) => {
     setIsWalletConnected(true);
@@ -19,16 +22,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Polkadot Social Account Recovery
-          </h1>
-          <p className="text-gray-600">
-            Connect your wallet and select accounts to make recoverable
-          </p>
-        </header>
+    <>
+      <NavBar />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <header className="text-center mb-12">
+            <p className="text-gray-600 text-lg">
+              Connect your wallet and select accounts to make recoverable
+            </p>
+          </header>
 
         <div className="space-y-6">
           <WalletConnect
@@ -41,12 +43,16 @@ export default function Home() {
           />
         </div>
 
-        <footer className="mt-12 text-center text-sm text-gray-500">
-          <p>
-            Supported wallets: Polkadot.js, Talisman, SubWallet, Nova Wallet
-          </p>
-        </footer>
+          <footer className="mt-12 text-center text-sm text-gray-500">
+            <p>
+              Network: {selectedNetwork.name} | Endpoint: {getActiveWssUrl()}
+            </p>
+            <p className="mt-1">
+              Supported wallets: Polkadot.js, Talisman, SubWallet, Nova Wallet
+            </p>
+          </footer>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

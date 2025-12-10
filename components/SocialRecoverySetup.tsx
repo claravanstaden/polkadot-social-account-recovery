@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
+import { useNetwork } from '@/lib/NetworkContext';
+import { usePolkadotApi } from '@/lib/usePolkadotApi';
 
 interface SocialRecoverySetupProps {
   isWalletConnected: boolean;
@@ -9,6 +11,9 @@ interface SocialRecoverySetupProps {
 }
 
 export default function SocialRecoverySetup({ isWalletConnected, walletSource }: SocialRecoverySetupProps) {
+  const { selectedNetwork, getActiveWssUrl } = useNetwork();
+  const { api, isConnecting, isConnected, error: apiError, connect } = usePolkadotApi();
+
   const [allAccounts, setAllAccounts] = useState<InjectedAccountWithMeta[]>([]);
   const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -103,18 +108,31 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
     }
 
     // TODO: Implement the actual social recovery setup logic here
+    // Use the `api` from usePolkadotApi hook to submit recovery transactions
+    // Example: api.tx.recovery.createRecovery(friends, threshold, delayPeriod).signAndSend(...)
+
     console.log('Setting up social recovery:', {
+      network: selectedNetwork.name,
+      endpoint: getActiveWssUrl(),
       recoverableAccounts: Array.from(selectedAccounts),
       friends: validFriends,
       threshold,
       refuteDurationDays: refuteDuration,
+      apiConnected: isConnected,
     });
+
+    if (!isConnected && !isConnecting) {
+      setError('Not connected to network. Click "Connect to Network" to establish connection.');
+      return;
+    }
 
     alert(
       `Setting up social recovery for ${selectedAccounts.size} account(s)\n` +
+      `Network: ${selectedNetwork.name}\n` +
       `Friends: ${validFriends.length}\n` +
       `Threshold: ${threshold}\n` +
-      `Refute Duration: ${refuteDuration} days`
+      `Refute Duration: ${refuteDuration} days\n\n` +
+      `Note: Actual blockchain integration pending.`
     );
   };
 
@@ -130,10 +148,38 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
 
   return (
     <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-2 text-gray-800">Setup Social Recovery</h2>
-      <p className="text-sm text-gray-600 mb-6">
-        Select accounts to make recoverable and configure recovery settings
-      </p>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="text-2xl font-bold mb-2 text-gray-800">Setup Social Recovery</h2>
+          <p className="text-sm text-gray-600">
+            Select accounts to make recoverable and configure recovery settings
+          </p>
+        </div>
+        <div className="flex-shrink-0 ml-4">
+          {isConnected ? (
+            <div className="flex items-center gap-2 text-green-600 text-sm">
+              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+              Connected
+            </div>
+          ) : (
+            <button
+              onClick={connect}
+              disabled={isConnecting}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isConnecting ? 'Connecting...' : 'Connect to Network'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {apiError && (
+        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded text-sm">
+          Network connection issue: {apiError}
+        </div>
+      )}
+
+      <div className="mb-6"></div>
 
       {/* Account Selection */}
       <div className="mb-6">
@@ -311,10 +357,12 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm text-gray-700">
           <p className="font-semibold mb-2">Summary:</p>
           <ul className="space-y-1">
+            <li>• Network: {selectedNetwork.name}</li>
             <li>• Accounts to make recoverable: {selectedAccounts.size}</li>
             <li>• Friends (guardians): {friends.filter(f => f.trim()).length}</li>
             <li>• Threshold: {threshold} friend(s) needed to approve recovery</li>
             <li>• Refute duration: {refuteDuration} day(s)</li>
+            <li>• API Status: {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Not connected'}</li>
           </ul>
         </div>
       )}

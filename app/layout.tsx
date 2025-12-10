@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+'use client';
+
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { NetworkProvider } from "@/lib/NetworkContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,11 +14,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Polkadot Social Recovery",
-  description: "Recover your account on Polkadot with friends' help",
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,10 +21,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <title>Polkadot Social Recovery</title>
+        <meta name="description" content="Recover your account on Polkadot with friends' help" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <NetworkProvider>
+          {children}
+        </NetworkProvider>
       </body>
     </html>
   );
