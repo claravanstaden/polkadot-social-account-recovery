@@ -1,4 +1,4 @@
-import { ApiPromise, WsProvider } from '@polkadot/api';
+import { ApiPromise, WsProvider } from "@polkadot/api";
 
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
 
@@ -13,11 +13,17 @@ export interface ChainInfo {
 export async function createApi(wssUrl: string): Promise<ApiPromise> {
   const provider = new WsProvider(wssUrl, false);
 
+  // Must explicitly connect when autoConnect is disabled
+  await provider.connect();
+
   // Create API with timeout
   const api = await Promise.race([
     ApiPromise.create({ provider }),
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Connection timeout')), CONNECTION_TIMEOUT)
+      setTimeout(
+        () => reject(new Error("Connection timeout")),
+        CONNECTION_TIMEOUT,
+      ),
     ),
   ]);
 
@@ -32,7 +38,7 @@ export async function disconnectApi(api: ApiPromise): Promise<void> {
   try {
     await api.disconnect();
   } catch (error) {
-    console.warn('Error disconnecting API:', error);
+    console.warn("Error disconnecting API:", error);
   }
 }
 
@@ -45,7 +51,7 @@ export async function testConnection(wssUrl: string): Promise<boolean> {
     api = await createApi(wssUrl);
     return api.isConnected;
   } catch (error) {
-    console.error('Connection test failed:', error);
+    console.error("Connection test failed:", error);
     return false;
   } finally {
     if (api) {
@@ -75,7 +81,7 @@ export async function getChainInfo(api: ApiPromise): Promise<ChainInfo> {
 export function isValidWssUrl(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    return urlObj.protocol === 'ws:' || urlObj.protocol === 'wss:';
+    return urlObj.protocol === "ws:" || urlObj.protocol === "wss:";
   } catch {
     return false;
   }

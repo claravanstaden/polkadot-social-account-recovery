@@ -1,158 +1,452 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
-import { useNetwork } from '@/lib/NetworkContext';
-import { usePolkadotApi } from '@/lib/usePolkadotApi';
+import { useState, useEffect, useCallback } from "react";
+import type { ISubmittableResult } from "@polkadot/types/types";
+import { useNetwork } from "@/lib/NetworkContext";
+import { usePolkadotApi } from "@/lib/usePolkadotApi";
+import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 
-interface SocialRecoverySetupProps {
-  isWalletConnected: boolean;
-  walletSource: string | null;
+type TxStatus =
+  | "idle"
+  | "signing"
+  | "submitting"
+  | "in_block"
+  | "finalized"
+  | "error";
+
+interface FriendGroup {
+  friends: string[];
+  friends_needed: number;
+  inheritor: string;
+  inheritance_delay: number;
+  inheritance_order: number;
+  cancel_delay: number;
+  deposit: number;
 }
 
-export default function SocialRecoverySetup({ isWalletConnected, walletSource }: SocialRecoverySetupProps) {
+export default function SocialRecoverySetup() {
   const { selectedNetwork, getActiveWssUrl } = useNetwork();
-  const { api, isConnecting, isConnected, error: apiError, connect } = usePolkadotApi();
+  const {
+    api,
+    isConnecting,
+    isConnected,
+    error: apiError,
+    connect,
+  } = usePolkadotApi();
+  const {
+    wallet,
+    accounts,
+    selectedAccount: walletSelectedAccount,
+    selectAccount,
+    openModal,
+  } = usePolkadotWallet();
 
-  const [allAccounts, setAllAccounts] = useState<InjectedAccountWithMeta[]>([]);
-  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [txStatus, setTxStatus] = useState<TxStatus>("idle");
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Recovery configuration
-  const [friends, setFriends] = useState<string[]>(['']);
-  const [threshold, setThreshold] = useState<number>(2);
-  const [refuteDuration, setRefuteDuration] = useState<number>(7);
+  // Existing friend groups from chain
+  const [existingFriendGroups, setExistingFriendGroups] = useState<
+    FriendGroup[] | null
+  >(null);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
 
+  // Friend groups configuration
+  const [friendGroups, setFriendGroups] = useState<FriendGroup[]>([
+    {
+      friends: [""],
+      friends_needed: 2,
+      inheritor: "",
+      inheritance_delay: 10,
+      inheritance_order: 0,
+      cancel_delay: 10,
+      deposit: 10,
+    },
+  ]);
+
+  // Get selected account address
+  const selectedAccount = walletSelectedAccount?.address || "";
+
+  // Reset form when wallet disconnects
   useEffect(() => {
-    if (isWalletConnected && walletSource) {
-      loadAllAccounts();
-    } else {
-      // Reset accounts when wallet is disconnected
-      setAllAccounts([]);
-      setSelectedAccounts(new Set());
-      setFriends(['']);
-      setThreshold(2);
-      setRefuteDuration(7);
+    if (!wallet) {
+      setFriendGroups([
+        {
+          friends: [""],
+          friends_needed: 2,
+          inheritor: "",
+          inheritance_delay: 10,
+          inheritance_order: 0,
+          cancel_delay: 10,
+          deposit: 10,
+        },
+      ]);
     }
-  }, [isWalletConnected, walletSource]);
+  }, [wallet]);
 
-  const loadAllAccounts = async () => {
-    setIsLoading(true);
-    setError(null);
+  // Fetch existing friend groups from chain
+  const fetchExistingFriendGroups = useCallback(async () => {
+    if (!api || !isConnected || !selectedAccount) {
+      setExistingFriendGroups(null);
+      return;
+    }
+
+    setIsLoadingExisting(true);
 
     try {
-      const { web3Accounts } = await import('@polkadot/extension-dapp');
-      const accounts = await web3Accounts();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiQuery = api.query as any;
+      const recoveryQuery =
+        apiQuery.recovery ||
+        apiQuery.socialRecovery ||
+        apiQuery.social_recovery;
 
-      // Filter accounts to only show those from the selected wallet
-      const filteredAccounts = accounts.filter(
-        account => account.meta.source === walletSource
-      );
+      if (!recoveryQuery) {
+        setExistingFriendGroups(null);
+        setIsLoadingExisting(false);
+        return;
+      }
 
-      setAllAccounts(filteredAccounts);
-      setIsLoading(false);
+      // Try to find the storage for friend groups
+      let result = null;
+      const storageKeys = Object.keys(recoveryQuery);
+
+      // Try common storage key names
+      const possibleKeys = [
+        "friendGroups",
+        "recoverable",
+        "friendGroup",
+        "recovery",
+        "config",
+      ];
+      for (const key of possibleKeys) {
+        if (recoveryQuery[key]) {
+          result = await recoveryQuery[key](selectedAccount);
+          if (result && !result.isEmpty) {
+            break;
+          }
+        }
+      }
+
+      // If no common key found, try the first available key that looks like a map
+      if (!result || result.isEmpty) {
+        for (const key of storageKeys) {
+          if (
+            typeof recoveryQuery[key] === "function" &&
+            !key.startsWith("_")
+          ) {
+            try {
+              result = await recoveryQuery[key](selectedAccount);
+              if (result && !result.isEmpty) {
+                break;
+              }
+            } catch {
+              // Skip keys that don't accept account as parameter
+            }
+          }
+        }
+      }
+
+      if (result && !result.isEmpty) {
+        // Parse the result
+        const data = result.toJSON();
+
+        // Handle different data structures
+        let friendGroupsArray: any[] = [];
+
+        if (Array.isArray(data)) {
+          // The data might be [[friendGroups], null] or [friendGroup1, friendGroup2]
+          // Check if first element is an array of friend groups
+          if (data.length > 0 && Array.isArray(data[0])) {
+            // Structure: [[friendGroup1, friendGroup2, ...], null]
+            friendGroupsArray = data[0].filter((item: any) => item !== null);
+          } else {
+            // Structure: [friendGroup1, friendGroup2, ...]
+            friendGroupsArray = data.filter((item: any) => item !== null);
+          }
+        }
+
+        if (friendGroupsArray.length > 0) {
+          const parsedGroups: FriendGroup[] = friendGroupsArray.map(
+            (group: any) => ({
+              friends: group.friends || [],
+              friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
+              inheritor: group.inheritor || "",
+              inheritance_delay:
+                group.inheritance_delay ?? group.inheritanceDelay ?? 0,
+              inheritance_order:
+                group.inheritance_order ?? group.inheritanceOrder ?? 0,
+              cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
+              deposit: group.deposit ?? 0,
+            }),
+          );
+          setExistingFriendGroups(parsedGroups);
+        } else {
+          setExistingFriendGroups(null);
+        }
+      } else {
+        setExistingFriendGroups(null);
+      }
     } catch (err) {
-      setError(`Failed to load accounts: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      setIsLoading(false);
+      console.error("Error fetching existing friend groups:", err);
+      setExistingFriendGroups(null);
+    } finally {
+      setIsLoadingExisting(false);
+    }
+  }, [api, isConnected, selectedAccount]);
+
+  // Fetch existing friend groups when account or connection changes
+  useEffect(() => {
+    fetchExistingFriendGroups();
+  }, [fetchExistingFriendGroups]);
+
+  const addFriendGroup = () => {
+    setFriendGroups([
+      ...friendGroups,
+      {
+        friends: [""],
+        friends_needed: 2,
+        inheritor: "",
+        inheritance_delay: 10,
+        inheritance_order: friendGroups.length,
+        cancel_delay: 10,
+        deposit: 10,
+      },
+    ]);
+  };
+
+  const removeFriendGroup = (groupIndex: number) => {
+    if (friendGroups.length > 1) {
+      setFriendGroups(friendGroups.filter((_, i) => i !== groupIndex));
     }
   };
 
-  const toggleAccountSelection = (address: string) => {
-    const newSelection = new Set(selectedAccounts);
-    if (newSelection.has(address)) {
-      newSelection.delete(address);
-    } else {
-      newSelection.add(address);
+  const updateFriendGroup = (
+    groupIndex: number,
+    field: keyof FriendGroup,
+    value: any,
+  ) => {
+    const newGroups = [...friendGroups];
+    newGroups[groupIndex] = { ...newGroups[groupIndex], [field]: value };
+    setFriendGroups(newGroups);
+  };
+
+  const addFriend = (groupIndex: number) => {
+    const newGroups = [...friendGroups];
+    newGroups[groupIndex].friends.push("");
+    setFriendGroups(newGroups);
+  };
+
+  const removeFriend = (groupIndex: number, friendIndex: number) => {
+    const newGroups = [...friendGroups];
+    if (newGroups[groupIndex].friends.length > 1) {
+      newGroups[groupIndex].friends = newGroups[groupIndex].friends.filter(
+        (_, i) => i !== friendIndex,
+      );
+      setFriendGroups(newGroups);
     }
-    setSelectedAccounts(newSelection);
   };
 
-  const addFriendInput = () => {
-    setFriends([...friends, '']);
+  const updateFriend = (
+    groupIndex: number,
+    friendIndex: number,
+    value: string,
+  ) => {
+    const newGroups = [...friendGroups];
+    newGroups[groupIndex].friends[friendIndex] = value;
+    setFriendGroups(newGroups);
   };
 
-  const removeFriendInput = (index: number) => {
-    const newFriends = friends.filter((_, i) => i !== index);
-    setFriends(newFriends.length > 0 ? newFriends : ['']);
-  };
-
-  const updateFriend = (index: number, value: string) => {
-    const newFriends = [...friends];
-    newFriends[index] = value;
-    setFriends(newFriends);
-  };
-
-  const handleSetupRecovery = () => {
+  const handleSetupRecovery = useCallback(async () => {
     setError(null);
+    setSuccessMessage(null);
+    setTxHash(null);
 
-    if (selectedAccounts.size === 0) {
-      setError('Please select at least one account to make recoverable');
+    if (!selectedAccount) {
+      setError("Please select an account to configure recovery for");
       return;
     }
 
-    const validFriends = friends.filter(f => f.trim() !== '');
-    if (validFriends.length === 0) {
-      setError('Please add at least one friend account');
+    if (!api || !isConnected) {
+      setError(
+        'Not connected to network. Please wait for connection or click "Connect to Network".',
+      );
       return;
     }
 
-    if (threshold < 1 || threshold > validFriends.length) {
-      setError(`Threshold must be between 1 and ${validFriends.length} (number of friends)`);
+    // Verify wallet is connected
+    if (!wallet || !walletSelectedAccount) {
+      setError("Please connect your wallet and select an account");
       return;
     }
 
-    if (refuteDuration < 1) {
-      setError('Refute duration must be at least 1 day');
-      return;
+    // Validate friend groups
+    for (let i = 0; i < friendGroups.length; i++) {
+      const group = friendGroups[i];
+      const validFriends = group.friends.filter((f) => f.trim() !== "");
+
+      if (validFriends.length === 0) {
+        setError(
+          `Friend group ${i + 1}: Please add at least one friend account`,
+        );
+        return;
+      }
+
+      if (
+        group.friends_needed < 1 ||
+        group.friends_needed > validFriends.length
+      ) {
+        setError(
+          `Friend group ${i + 1}: Friends needed must be between 1 and ${validFriends.length}`,
+        );
+        return;
+      }
+
+      if (!group.inheritor.trim()) {
+        setError(`Friend group ${i + 1}: Please specify an inheritor account`);
+        return;
+      }
+
+      if (group.inheritance_delay < 1) {
+        setError(
+          `Friend group ${i + 1}: Inheritance delay must be at least 1 block`,
+        );
+        return;
+      }
+
+      if (group.cancel_delay < 1) {
+        setError(
+          `Friend group ${i + 1}: Cancel delay must be at least 1 block`,
+        );
+        return;
+      }
+
+      if (group.deposit < 0) {
+        setError(`Friend group ${i + 1}: Deposit must be a positive number`);
+        return;
+      }
     }
 
-    // TODO: Implement the actual social recovery setup logic here
-    // Use the `api` from usePolkadotApi hook to submit recovery transactions
-    // Example: api.tx.recovery.createRecovery(friends, threshold, delayPeriod).signAndSend(...)
+    // Prepare friend groups data for the extrinsic
+    // Sort friends alphabetically as required by the pallet
+    const friendGroupsData = friendGroups.map((group) => ({
+      deposit: group.deposit,
+      friends: group.friends.filter((f) => f.trim() !== "").sort(),
+      friends_needed: group.friends_needed,
+      inheritor: group.inheritor,
+      inheritance_delay: group.inheritance_delay,
+      inheritance_order: group.inheritance_order,
+      cancel_delay: group.cancel_delay,
+    }));
 
-    console.log('Setting up social recovery:', {
-      network: selectedNetwork.name,
-      endpoint: getActiveWssUrl(),
-      recoverableAccounts: Array.from(selectedAccounts),
-      friends: validFriends,
-      threshold,
-      refuteDurationDays: refuteDuration,
-      apiConnected: isConnected,
-    });
+    try {
+      setTxStatus("signing");
 
-    if (!isConnected && !isConnecting) {
-      setError('Not connected to network. Click "Connect to Network" to establish connection.');
-      return;
+      // Get the signer from the wallet
+      const signer = wallet.signer;
+
+      // Find the recovery pallet - try various possible names
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiTx = api.tx as any;
+      const recoveryPallet =
+        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+
+      if (!recoveryPallet) {
+        const chainName = await api.rpc.system.chain();
+        setError(
+          `Recovery pallet not found on chain "${chainName}". ` +
+            `Please verify you're connected to a chain with the recovery pallet.`,
+        );
+        setTxStatus("error");
+        return;
+      }
+
+      if (!recoveryPallet.setFriendGroups) {
+        setError("setFriendGroups method not found in recovery pallet.");
+        setTxStatus("error");
+        return;
+      }
+
+      // Create the extrinsic
+      const tx = recoveryPallet.setFriendGroups(friendGroupsData);
+
+      setTxStatus("submitting");
+
+      // Sign and send the transaction
+      const unsub = await tx.signAndSend(
+        selectedAccount,
+        { signer },
+        (result: ISubmittableResult) => {
+          const { status, txHash: hash, dispatchError } = result;
+          setTxHash(hash.toHex());
+
+          if (status.isInBlock) {
+            setTxStatus("in_block");
+          }
+
+          if (status.isFinalized) {
+            setTxStatus("finalized");
+
+            // Check for dispatch error
+            if (dispatchError) {
+              let errorMessage = "Transaction failed";
+
+              if (dispatchError.isModule) {
+                const decoded = api.registry.findMetaError(
+                  dispatchError.asModule,
+                );
+                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+              } else {
+                errorMessage = dispatchError.toString();
+              }
+
+              setError(errorMessage);
+              setTxStatus("error");
+            } else {
+              setSuccessMessage(
+                `Social recovery configured successfully! Transaction hash: ${hash.toHex()}`,
+              );
+              // Refresh existing friend groups
+              fetchExistingFriendGroups();
+            }
+
+            unsub();
+          }
+        },
+      );
+    } catch (err) {
+      console.error("Transaction error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to submit transaction",
+      );
+      setTxStatus("error");
     }
+  }, [
+    selectedAccount,
+    api,
+    isConnected,
+    wallet,
+    walletSelectedAccount,
+    friendGroups,
+    selectedNetwork.name,
+    getActiveWssUrl,
+    fetchExistingFriendGroups,
+  ]);
 
-    alert(
-      `Setting up social recovery for ${selectedAccounts.size} account(s)\n` +
-      `Network: ${selectedNetwork.name}\n` +
-      `Friends: ${validFriends.length}\n` +
-      `Threshold: ${threshold}\n` +
-      `Refute Duration: ${refuteDuration} days\n\n` +
-      `Note: Actual blockchain integration pending.`
-    );
-  };
-
-  if (!isWalletConnected) {
-    return (
-      <div className="w-full max-w-2xl mx-auto p-6 bg-gray-100 rounded-lg">
-        <p className="text-gray-600 text-center">
-          Please connect your wallet first
-        </p>
-      </div>
-    );
+  if (!wallet) {
+    return null;
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-bold mb-2 text-gray-800">Setup Social Recovery</h2>
+          <h2 className="text-2xl font-bold mb-2 text-gray-800">
+            Setup Social Recovery
+          </h2>
           <p className="text-sm text-gray-600">
-            Select accounts to make recoverable and configure recovery settings
+            Configure friend groups for account recovery and inheritance
           </p>
         </div>
         <div className="flex-shrink-0 ml-4">
@@ -167,7 +461,7 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
               disabled={isConnecting}
               className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isConnecting ? 'Connecting...' : 'Connect to Network'}
+              {isConnecting ? "Connecting..." : "Connect to Network"}
             </button>
           )}
         </div>
@@ -179,191 +473,417 @@ export default function SocialRecoverySetup({ isWalletConnected, walletSource }:
         </div>
       )}
 
-      <div className="mb-6"></div>
-
       {/* Account Selection */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-gray-700">
-            Your Accounts ({selectedAccounts.size} of {allAccounts.length} selected)
-          </p>
-          {allAccounts.length > 0 && (
+        <label
+          htmlFor="account-select"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
+          Account to Configure
+        </label>
+        {accounts.length === 0 ? (
+          <div className="text-center py-4 text-gray-500">
+            <p>No accounts found.</p>
             <button
-              onClick={() => {
-                if (selectedAccounts.size === allAccounts.length) {
-                  setSelectedAccounts(new Set());
-                } else {
-                  setSelectedAccounts(new Set(allAccounts.map(acc => acc.address)));
-                }
-              }}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              onClick={openModal}
+              className="mt-2 text-blue-600 hover:text-blue-800 underline text-sm"
             >
-              {selectedAccounts.size === allAccounts.length ? 'Deselect All' : 'Select All'}
+              Open wallet to add accounts
             </button>
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="text-center py-8 text-gray-500">Loading accounts...</div>
-        ) : allAccounts.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No accounts found. Please create accounts in your wallet extension.
           </div>
         ) : (
-          <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2">
-            {allAccounts.map((acc) => {
-              const isSelected = selectedAccounts.has(acc.address);
-              return (
-                <button
-                  key={acc.address}
-                  onClick={() => toggleAccountSelection(acc.address)}
-                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-1">
-                      <div
-                        className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                          isSelected
-                            ? 'bg-blue-500 border-blue-500'
-                            : 'bg-white border-gray-300'
-                        }`}
-                      >
-                        {isSelected && (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path d="M5 13l4 4L19 7"></path>
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-800">{acc.meta.name}</div>
-                      <div className="text-xs text-gray-500 truncate font-mono">{acc.address}</div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <select
+            id="account-select"
+            value={selectedAccount}
+            onChange={(e) => selectAccount(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select an account...</option>
+            {accounts.map((acc) => (
+              <option key={acc.address} value={acc.address}>
+                {acc.name || "Unnamed"} - {acc.address.slice(0, 8)}...
+                {acc.address.slice(-8)}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
-      {/* Recovery Configuration */}
-      <div className="border-t pt-6 space-y-6">
-        <h3 className="text-lg font-semibold text-gray-800">Recovery Configuration</h3>
-
-        {/* Friends List */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Friend Account IDs (Guardians)
-          </label>
-          <p className="text-xs text-gray-500 mb-3">
-            Add the account addresses of friends who can help recover your account
-          </p>
-          <div className="space-y-2">
-            {friends.map((friend, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="text"
-                  value={friend}
-                  onChange={(e) => updateFriend(index, e.target.value)}
-                  placeholder="Enter friend's account address..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
-                />
-                {friends.length > 1 && (
+      {/* Existing Friend Groups from Chain */}
+      {isConnected && selectedAccount && (
+        <div className="mb-6 border-t pt-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Existing Configuration
+          </h3>
+          {isLoadingExisting ? (
+            <div className="p-4 bg-gray-50 rounded-lg text-gray-500 text-center">
+              Loading existing friend groups...
+            </div>
+          ) : existingFriendGroups && existingFriendGroups.length > 0 ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-start justify-between mb-3">
+                  <p className="text-sm text-green-800">
+                    This account has {existingFriendGroups.length} friend group
+                    {existingFriendGroups.length !== 1 ? "s" : ""} configured on
+                    chain.
+                  </p>
                   <button
-                    onClick={() => removeFriendInput(index)}
-                    className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                    onClick={() => {
+                      setFriendGroups(
+                        existingFriendGroups.map((group) => ({
+                          ...group,
+                          friends:
+                            group.friends.length > 0 ? group.friends : [""],
+                        })),
+                      );
+                    }}
+                    className="p-1.5 text-green-700 hover:text-green-900 hover:bg-green-100 rounded transition-colors"
+                    title="Load into form for editing"
                   >
-                    Remove
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      />
+                    </svg>
                   </button>
-                )}
+                </div>
+                {existingFriendGroups.map((group, index) => (
+                  <div
+                    key={index}
+                    className="bg-white p-3 rounded border border-green-100 mb-2 last:mb-0"
+                  >
+                    <p className="font-medium text-gray-800 mb-2">
+                      Friend Group {index + 1}
+                    </p>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>
+                        <span className="font-medium">Friends:</span>{" "}
+                        {group.friends.length}
+                      </p>
+                      <ul className="ml-4 text-xs font-mono">
+                        {group.friends.map((friend, i) => (
+                          <li key={i} className="truncate">
+                            {friend}
+                          </li>
+                        ))}
+                      </ul>
+                      <p>
+                        <span className="font-medium">Friends Needed:</span>{" "}
+                        {group.friends_needed}
+                      </p>
+                      <p>
+                        <span className="font-medium">Inheritor:</span>{" "}
+                        <span className="font-mono text-xs truncate inline-block max-w-xs align-bottom">
+                          {group.inheritor}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="font-medium">Inheritance Delay:</span>{" "}
+                        {group.inheritance_delay} blocks
+                      </p>
+                      <p>
+                        <span className="font-medium">Cancel Delay:</span>{" "}
+                        {group.cancel_delay} blocks
+                      </p>
+                      <p>
+                        <span className="font-medium">Inheritance Order:</span>{" "}
+                        {group.inheritance_order}
+                      </p>
+                      <p>
+                        <span className="font-medium">Deposit:</span>{" "}
+                        {group.deposit}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm">
+              No friend groups configured for this account yet.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Friend Groups Form */}
+      <div className="border-t pt-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-800">
+            {existingFriendGroups && existingFriendGroups.length > 0
+              ? "Update Friend Groups"
+              : "Configure Friend Groups"}
+          </h3>
           <button
-            onClick={addFriendInput}
-            className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+            onClick={addFriendGroup}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            + Add Another Friend
+            + Add Friend Group
           </button>
         </div>
 
-        {/* Threshold */}
-        <div>
-          <label htmlFor="threshold" className="block text-sm font-medium text-gray-700 mb-2">
-            Recovery Threshold
-          </label>
-          <p className="text-xs text-gray-500 mb-2">
-            Number of friends required to approve a recovery
-          </p>
-          <input
-            id="threshold"
-            type="number"
-            min="1"
-            max={friends.filter(f => f.trim()).length || 1}
-            value={threshold}
-            onChange={(e) => setThreshold(parseInt(e.target.value) || 1)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        {friendGroups.map((group, groupIndex) => (
+          <div
+            key={groupIndex}
+            className="border border-gray-200 rounded-lg p-4 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-gray-800">
+                Friend Group {groupIndex + 1}
+              </h4>
+              {friendGroups.length > 1 && (
+                <button
+                  onClick={() => removeFriendGroup(groupIndex)}
+                  className="text-sm text-red-600 hover:text-red-800"
+                >
+                  Remove Group
+                </button>
+              )}
+            </div>
 
-        {/* Refute Duration */}
-        <div>
-          <label htmlFor="refuteDuration" className="block text-sm font-medium text-gray-700 mb-2">
-            Refute Duration (days)
-          </label>
-          <p className="text-xs text-gray-500 mb-2">
-            Waiting period before an approved recovery takes effect
-          </p>
-          <input
-            id="refuteDuration"
-            type="number"
-            min="1"
-            value={refuteDuration}
-            onChange={(e) => setRefuteDuration(parseInt(e.target.value) || 1)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+            {/* Friends */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Friend Accounts
+              </label>
+              <div className="space-y-2">
+                {group.friends.map((friend, friendIndex) => (
+                  <div key={friendIndex} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={friend}
+                      onChange={(e) =>
+                        updateFriend(groupIndex, friendIndex, e.target.value)
+                      }
+                      placeholder="Enter friend's account address..."
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                    />
+                    {group.friends.length > 1 && (
+                      <button
+                        onClick={() => removeFriend(groupIndex, friendIndex)}
+                        className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => addFriend(groupIndex)}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+              >
+                + Add Friend
+              </button>
+            </div>
+
+            {/* Friends Needed (Threshold) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Friends Needed (Threshold)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max={group.friends.filter((f) => f.trim()).length || 1}
+                value={group.friends_needed}
+                onChange={(e) =>
+                  updateFriendGroup(
+                    groupIndex,
+                    "friends_needed",
+                    parseInt(e.target.value) || 1,
+                  )
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Number of friends required to approve recovery
+              </p>
+            </div>
+
+            {/* Inheritor */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Inheritor Account
+              </label>
+              <input
+                type="text"
+                value={group.inheritor}
+                onChange={(e) =>
+                  updateFriendGroup(groupIndex, "inheritor", e.target.value)
+                }
+                placeholder="Enter inheritor's account address..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Account that will inherit if recovery is not claimed
+              </p>
+            </div>
+
+            {/* Delays and Order */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Inheritance Delay (blocks)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={group.inheritance_delay}
+                  onChange={(e) =>
+                    updateFriendGroup(
+                      groupIndex,
+                      "inheritance_delay",
+                      parseInt(e.target.value) || 1,
+                    )
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cancel Delay (blocks)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={group.cancel_delay}
+                  onChange={(e) =>
+                    updateFriendGroup(
+                      groupIndex,
+                      "cancel_delay",
+                      parseInt(e.target.value) || 1,
+                    )
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Inheritance Order
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={group.inheritance_order}
+                  onChange={(e) =>
+                    updateFriendGroup(
+                      groupIndex,
+                      "inheritance_order",
+                      parseInt(e.target.value) || 0,
+                    )
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Deposit Amount
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={group.deposit}
+                  onChange={(e) =>
+                    updateFriendGroup(
+                      groupIndex,
+                      "deposit",
+                      parseFloat(e.target.value) || 0,
+                    )
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <button
         onClick={handleSetupRecovery}
-        disabled={selectedAccounts.size === 0}
+        disabled={
+          !selectedAccount ||
+          !isConnected ||
+          txStatus === "signing" ||
+          txStatus === "submitting" ||
+          txStatus === "in_block"
+        }
         className="w-full mt-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-colors"
       >
-        Setup Recovery for {selectedAccounts.size > 0 ? `${selectedAccounts.size}` : ''} Account
-        {selectedAccounts.size !== 1 ? 's' : ''}
+        {txStatus === "signing" && "Waiting for signature..."}
+        {txStatus === "submitting" && "Submitting transaction..."}
+        {txStatus === "in_block" && "Waiting for finalization..."}
+        {(txStatus === "idle" ||
+          txStatus === "finalized" ||
+          txStatus === "error") &&
+          `Setup Recovery with ${friendGroups.length} Friend Group${friendGroups.length !== 1 ? "s" : ""}`}
       </button>
 
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
+      {/* Transaction Status */}
+      {txStatus !== "idle" && txStatus !== "error" && (
+        <div className="mt-4 p-3 bg-blue-100 border border-blue-400 text-blue-800 rounded">
+          <div className="flex items-center gap-2">
+            {(txStatus === "signing" ||
+              txStatus === "submitting" ||
+              txStatus === "in_block") && (
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            )}
+            <span>
+              {txStatus === "signing" &&
+                "Please sign the transaction in your wallet..."}
+              {txStatus === "submitting" &&
+                "Submitting transaction to the network..."}
+              {txStatus === "in_block" &&
+                "Transaction included in block, waiting for finalization..."}
+              {txStatus === "finalized" && "Transaction finalized!"}
+            </span>
+          </div>
+          {txHash && (
+            <p className="mt-2 text-xs font-mono break-all">
+              Transaction hash: {txHash}
+            </p>
+          )}
         </div>
       )}
 
-      {selectedAccounts.size > 0 && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm text-gray-700">
-          <p className="font-semibold mb-2">Summary:</p>
-          <ul className="space-y-1">
-            <li>• Network: {selectedNetwork.name}</li>
-            <li>• Accounts to make recoverable: {selectedAccounts.size}</li>
-            <li>• Friends (guardians): {friends.filter(f => f.trim()).length}</li>
-            <li>• Threshold: {threshold} friend(s) needed to approve recovery</li>
-            <li>• Refute duration: {refuteDuration} day(s)</li>
-            <li>• API Status: {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Not connected'}</li>
-          </ul>
+      {/* Success Message */}
+      {successMessage && (
+        <div className="mt-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
         </div>
       )}
     </div>

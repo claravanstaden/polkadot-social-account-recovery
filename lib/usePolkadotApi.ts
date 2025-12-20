@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { ApiPromise } from '@polkadot/api';
-import { useNetwork } from './NetworkContext';
-import { createApi, disconnectApi } from './polkadotApi';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ApiPromise } from "@polkadot/api";
+import { useNetwork } from "./NetworkContext";
+import { createApi, disconnectApi } from "./polkadotApi";
 
 export interface UsePolkadotApiReturn {
   api: ApiPromise | null;
@@ -15,12 +15,12 @@ export interface UsePolkadotApiReturn {
 }
 
 export function usePolkadotApi(): UsePolkadotApiReturn {
-  const { getActiveWssUrl, selectedNetwork } = useNetwork();
+  const { getActiveWssUrl, selectedNetwork, customUrls } = useNetwork();
   const [api, setApi] = useState<ApiPromise | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const currentWssUrl = useRef<string>('');
+  const currentWssUrl = useRef<string>("");
 
   const disconnect = useCallback(async () => {
     if (api) {
@@ -28,9 +28,9 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
         await disconnectApi(api);
         setApi(null);
         setIsConnected(false);
-        currentWssUrl.current = '';
+        currentWssUrl.current = "";
       } catch (err) {
-        console.error('Error disconnecting:', err);
+        console.error("Error disconnecting:", err);
       }
     }
   }, [api]);
@@ -53,12 +53,17 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
 
     try {
       const newApi = await createApi(wssUrl);
+
+      // Verify the connection is ready by getting chain info
+      await newApi.rpc.system.chain();
+
       setApi(newApi);
       setIsConnected(true);
       currentWssUrl.current = wssUrl;
       setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect to network';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to connect to network";
       setError(errorMessage);
       setApi(null);
       setIsConnected(false);
@@ -67,13 +72,23 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
     }
   }, [api, isConnected, disconnect, getActiveWssUrl]);
 
-  // Reconnect when network changes
+  // Get the current active URL for dependency tracking
+  const activeWssUrl = getActiveWssUrl();
+
+  // Auto-connect when network or URL changes
   useEffect(() => {
-    // Disconnect when network changes
-    if (api && isConnected) {
-      disconnect();
+    // If URL changed, reconnect
+    if (currentWssUrl.current !== activeWssUrl) {
+      // Disconnect from previous connection if exists
+      if (api && isConnected) {
+        disconnect().then(() => {
+          connect();
+        });
+      } else {
+        connect();
+      }
     }
-  }, [selectedNetwork.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeWssUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
   useEffect(() => {

@@ -1,123 +1,78 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { SUPPORTED_WALLETS, WalletConfig } from '@/lib/wallets';
+import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 
-interface WalletConnectProps {
-  onWalletConnected: (walletName: string, extensionName: string) => void;
-  onWalletDisconnected: () => void;
-}
+export default function WalletConnect() {
+  const { wallet, selectedAccount, openModal, disconnect } =
+    usePolkadotWallet();
 
-export default function WalletConnect({ onWalletConnected, onWalletDisconnected }: WalletConnectProps) {
-  const [connectedWallet, setConnectedWallet] = useState<WalletConfig | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [error, setError] = useState<React.ReactNode | null>(null);
-
-  const connectToWallet = async (wallet: WalletConfig) => {
-    setIsConnecting(true);
-    setError(null);
-
-    try {
-      const { web3Enable } = await import('@polkadot/extension-dapp');
-
-      // Enable the wallet extension
-      const extensions = await web3Enable('Polkadot Social Account Recovery');
-
-      if (extensions.length === 0) {
-        setError(`No wallet extensions found. Please install ${wallet.name} or another supported wallet.`);
-        setIsConnecting(false);
-        return;
-      }
-
-      const selectedExtension = extensions.find(ext => ext.name === wallet.extensionName);
-
-      if (!selectedExtension) {
-        setError(
-          <div>
-            <p className="font-semibold mb-2">{wallet.name} is not installed.</p>
-            <a
-              href={wallet.installUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline"
-            >
-              Click here to install {wallet.name} →
-            </a>
-          </div>
-        );
-        setIsConnecting(false);
-        return;
-      }
-
-      // Successfully connected
-      setConnectedWallet(wallet);
-      onWalletConnected(wallet.name, wallet.extensionName);
-      setIsConnecting(false);
-    } catch (err) {
-      setError(`Failed to connect: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      setIsConnecting(false);
-    }
-  };
-
-  if (connectedWallet) {
+  if (wallet && selectedAccount) {
     return (
-      <div className="w-full max-w-2xl mx-auto p-6 bg-green-50 rounded-lg border-2 border-green-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={connectedWallet.icon} alt={connectedWallet.name} className="w-10 h-10 rounded-lg" />
-            <div>
-              <div className="font-semibold text-gray-800">Connected to {connectedWallet.name}</div>
-              <div className="text-sm text-gray-600">Your accounts are loaded below</div>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setConnectedWallet(null);
-              setError(null);
-              onWalletDisconnected();
-            }}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+      <div className="flex items-center gap-2">
+        <button
+          onClick={openModal}
+          className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+        >
+          {wallet.logo && (
+            <img
+              src={wallet.logo.src}
+              alt={wallet.logo.alt}
+              className="w-5 h-5 rounded"
+            />
+          )}
+          <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
+            {selectedAccount.name ||
+              selectedAccount.address.slice(0, 8) + "..."}
+          </span>
+        </button>
+        <button
+          onClick={disconnect}
+          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+          title="Disconnect wallet"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            Disconnect
-          </button>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
+          </svg>
+        </button>
       </div>
     );
   }
 
+  if (wallet) {
+    // Wallet connected but no account selected
+    return (
+      <button
+        onClick={openModal}
+        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors text-sm font-medium text-gray-700"
+      >
+        {wallet.logo && (
+          <img
+            src={wallet.logo.src}
+            alt={wallet.logo.alt}
+            className="w-5 h-5 rounded"
+          />
+        )}
+        Select Account
+      </button>
+    );
+  }
+
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-2 text-gray-800">Connect Wallet</h2>
-      <p className="text-sm text-gray-600 mb-6">
-        Choose a wallet to connect and view your accounts
-      </p>
-
-      <div className="space-y-3">
-        {SUPPORTED_WALLETS.map((wallet) => (
-          <button
-            key={wallet.id}
-            onClick={() => connectToWallet(wallet)}
-            disabled={isConnecting}
-            className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-center gap-3">
-              <img src={wallet.icon} alt={wallet.name} className="w-10 h-10 rounded-lg" />
-              <div className="flex-1">
-                <div className="font-semibold text-gray-800">{wallet.name}</div>
-              </div>
-              {isConnecting && (
-                <div className="text-blue-600 text-sm">Connecting...</div>
-              )}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {error && (
-        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
-      )}
-    </div>
+    <button
+      onClick={openModal}
+      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+    >
+      Connect Wallet
+    </button>
   );
 }

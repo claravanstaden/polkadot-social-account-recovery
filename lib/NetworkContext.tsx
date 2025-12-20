@@ -1,7 +1,18 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { NetworkConfig, SUPPORTED_NETWORKS, getNetworkById, DEFAULT_NETWORK_ID } from './networks';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import {
+  NetworkConfig,
+  SUPPORTED_NETWORKS,
+  getNetworkById,
+  DEFAULT_NETWORK_ID,
+} from "./networks";
 
 interface NetworkContextType {
   selectedNetwork: NetworkConfig;
@@ -14,8 +25,8 @@ interface NetworkContextType {
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 
-const STORAGE_KEY_NETWORK = 'polkadot-recovery-network';
-const STORAGE_KEY_CUSTOM_URLS = 'polkadot-recovery-custom-urls';
+const STORAGE_KEY_NETWORK = "polkadot-recovery-network";
+const STORAGE_KEY_CUSTOM_URLS = "polkadot-recovery-custom-urls";
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(() => {
@@ -43,7 +54,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         setCustomUrls(JSON.parse(savedCustomUrls));
       }
     } catch (error) {
-      console.warn('Failed to load network settings from localStorage:', error);
+      console.warn("Failed to load network settings from localStorage:", error);
     }
     setIsInitialized(true);
   }, []);
@@ -54,7 +65,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY_NETWORK, selectedNetwork.id);
     } catch (error) {
-      console.warn('Failed to save network to localStorage:', error);
+      console.warn("Failed to save network to localStorage:", error);
     }
   }, [selectedNetwork, isInitialized]);
 
@@ -64,7 +75,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY_CUSTOM_URLS, JSON.stringify(customUrls));
     } catch (error) {
-      console.warn('Failed to save custom URLs to localStorage:', error);
+      console.warn("Failed to save custom URLs to localStorage:", error);
     }
   }, [customUrls, isInitialized]);
 
@@ -103,13 +114,15 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     resetCustomUrl,
   };
 
-  return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
+  return (
+    <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
+  );
 }
 
 export function useNetwork(): NetworkContextType {
   const context = useContext(NetworkContext);
   if (context === undefined) {
-    throw new Error('useNetwork must be used within a NetworkProvider');
+    throw new Error("useNetwork must be used within a NetworkProvider");
   }
   return context;
 }

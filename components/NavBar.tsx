@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
-import NetworkSelector from './NetworkSelector';
+import NetworkSelector from "./NetworkSelector";
+import WalletConnect from "./WalletConnect";
 
 export default function NavBar() {
   return (
@@ -12,8 +13,9 @@ export default function NavBar() {
               Polkadot Social Recovery
             </h1>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
             <NetworkSelector />
+            <WalletConnect />
           </div>
         </div>
       </div>

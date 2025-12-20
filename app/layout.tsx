@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NetworkProvider } from "@/lib/NetworkContext";
+import { PolkadotWalletProvider } from "@/lib/PolkadotWalletContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,13 +24,16 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <title>Polkadot Social Recovery</title>
-        <meta name="description" content="Recover your account on Polkadot with friends' help" />
+        <meta
+          name="description"
+          content="Recover your account on Polkadot with friends' help"
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <NetworkProvider>
-          {children}
+          <PolkadotWalletProvider>{children}</PolkadotWalletProvider>
         </NetworkProvider>
       </body>
     </html>
