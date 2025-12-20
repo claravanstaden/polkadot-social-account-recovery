@@ -439,27 +439,27 @@ export default function SocialRecoverySetup() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <div className="flex items-start justify-between mb-4">
+    <div className="w-full max-w-4xl mx-auto p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)]">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold mb-2 text-gray-800">
+          <h2 className="font-display text-2xl font-normal mb-2 text-[var(--foreground)]">
             Setup Social Recovery
           </h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-[var(--foreground-secondary)]">
             Configure friend groups for account recovery and inheritance
           </p>
         </div>
         <div className="flex-shrink-0 ml-4">
           {isConnected ? (
-            <div className="flex items-center gap-2 text-green-600 text-sm">
-              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+            <div className="flex items-center gap-2 text-[var(--success)] text-sm">
+              <div className="w-2 h-2 bg-[var(--success)] rounded-full"></div>
               Connected
             </div>
           ) : (
             <button
               onClick={connect}
               disabled={isConnecting}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
             >
               {isConnecting ? "Connecting..." : "Connect to Network"}
             </button>
@@ -468,7 +468,7 @@ export default function SocialRecoverySetup() {
       </div>
 
       {apiError && (
-        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded text-sm">
+        <div className="mb-4 p-4 bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning)] rounded-lg text-sm">
           Network connection issue: {apiError}
         </div>
       )}
@@ -477,16 +477,16 @@ export default function SocialRecoverySetup() {
       <div className="mb-6">
         <label
           htmlFor="account-select"
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="block text-sm font-medium text-[var(--foreground)] mb-2"
         >
           Account to Configure
         </label>
         {accounts.length === 0 ? (
-          <div className="text-center py-4 text-gray-500">
+          <div className="text-center py-4 text-[var(--foreground-muted)]">
             <p>No accounts found.</p>
             <button
               onClick={openModal}
-              className="mt-2 text-blue-600 hover:text-blue-800 underline text-sm"
+              className="mt-2 text-[var(--polkadot-accent)] hover:underline text-sm"
             >
               Open wallet to add accounts
             </button>
@@ -496,7 +496,7 @@ export default function SocialRecoverySetup() {
             id="account-select"
             value={selectedAccount}
             onChange={(e) => selectAccount(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
           >
             <option value="">Select an account...</option>
             {accounts.map((acc) => (
@@ -511,19 +511,19 @@ export default function SocialRecoverySetup() {
 
       {/* Existing Friend Groups from Chain */}
       {isConnected && selectedAccount && (
-        <div className="mb-6 border-t pt-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        <div className="mb-6 border-t border-[var(--border-color)] pt-6">
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
             Existing Configuration
           </h3>
           {isLoadingExisting ? (
-            <div className="p-4 bg-gray-50 rounded-lg text-gray-500 text-center">
+            <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
               Loading existing friend groups...
             </div>
           ) : existingFriendGroups && existingFriendGroups.length > 0 ? (
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-4 bg-[var(--success-bg)] border border-[var(--success-border)] rounded-lg">
                 <div className="flex items-start justify-between mb-3">
-                  <p className="text-sm text-green-800">
+                  <p className="text-sm text-[var(--success)]">
                     This account has {existingFriendGroups.length} friend group
                     {existingFriendGroups.length !== 1 ? "s" : ""} configured on
                     chain.
@@ -538,7 +538,7 @@ export default function SocialRecoverySetup() {
                         })),
                       );
                     }}
-                    className="p-1.5 text-green-700 hover:text-green-900 hover:bg-green-100 rounded transition-colors"
+                    className="p-1.5 text-[var(--success)] hover:bg-[var(--success-bg)] rounded transition-colors"
                     title="Load into form for editing"
                   >
                     <svg
@@ -559,17 +559,17 @@ export default function SocialRecoverySetup() {
                 {existingFriendGroups.map((group, index) => (
                   <div
                     key={index}
-                    className="bg-white p-3 rounded border border-green-100 mb-2 last:mb-0"
+                    className="bg-[var(--surface)] p-3 rounded-lg border border-[var(--border-color)] mb-2 last:mb-0"
                   >
-                    <p className="font-medium text-gray-800 mb-2">
+                    <p className="font-medium text-[var(--foreground)] mb-2">
                       Friend Group {index + 1}
                     </p>
-                    <div className="text-sm text-gray-600 space-y-1">
+                    <div className="text-sm text-[var(--foreground-secondary)] space-y-1">
                       <p>
                         <span className="font-medium">Friends:</span>{" "}
                         {group.friends.length}
                       </p>
-                      <ul className="ml-4 text-xs font-mono">
+                      <ul className="ml-4 text-xs font-mono text-[var(--foreground-muted)]">
                         {group.friends.map((friend, i) => (
                           <li key={i} className="truncate">
                             {friend}
@@ -608,7 +608,7 @@ export default function SocialRecoverySetup() {
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-sm">
+            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg text-[var(--foreground-muted)] text-sm">
               No friend groups configured for this account yet.
             </div>
           )}
@@ -616,16 +616,16 @@ export default function SocialRecoverySetup() {
       )}
 
       {/* Friend Groups Form */}
-      <div className="border-t pt-6 space-y-6">
+      <div className="border-t border-[var(--border-color)] pt-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-lg font-semibold text-[var(--foreground)]">
             {existingFriendGroups && existingFriendGroups.length > 0
               ? "Update Friend Groups"
               : "Configure Friend Groups"}
           </h3>
           <button
             onClick={addFriendGroup}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
           >
             + Add Friend Group
           </button>
@@ -634,16 +634,16 @@ export default function SocialRecoverySetup() {
         {friendGroups.map((group, groupIndex) => (
           <div
             key={groupIndex}
-            className="border border-gray-200 rounded-lg p-4 space-y-4"
+            className="border border-[var(--border-color)] rounded-xl p-5 space-y-4 bg-[var(--background)]"
           >
             <div className="flex items-center justify-between">
-              <h4 className="font-semibold text-gray-800">
+              <h4 className="font-semibold text-[var(--foreground)]">
                 Friend Group {groupIndex + 1}
               </h4>
               {friendGroups.length > 1 && (
                 <button
                   onClick={() => removeFriendGroup(groupIndex)}
-                  className="text-sm text-red-600 hover:text-red-800"
+                  className="text-sm text-[var(--error)] hover:underline"
                 >
                   Remove Group
                 </button>
@@ -652,7 +652,7 @@ export default function SocialRecoverySetup() {
 
             {/* Friends */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                 Friend Accounts
               </label>
               <div className="space-y-2">
@@ -665,12 +665,12 @@ export default function SocialRecoverySetup() {
                         updateFriend(groupIndex, friendIndex, e.target.value)
                       }
                       placeholder="Enter friend's account address..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                      className="flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-sm font-mono text-[var(--foreground)]"
                     />
                     {group.friends.length > 1 && (
                       <button
                         onClick={() => removeFriend(groupIndex, friendIndex)}
-                        className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                        className="px-4 py-2 bg-[var(--error-bg)] text-[var(--error)] rounded-lg hover:bg-[var(--error-border)] transition-colors"
                       >
                         Remove
                       </button>
@@ -680,7 +680,7 @@ export default function SocialRecoverySetup() {
               </div>
               <button
                 onClick={() => addFriend(groupIndex)}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                className="mt-2 text-sm text-[var(--polkadot-accent)] hover:underline"
               >
                 + Add Friend
               </button>
@@ -688,7 +688,7 @@ export default function SocialRecoverySetup() {
 
             {/* Friends Needed (Threshold) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                 Friends Needed (Threshold)
               </label>
               <input
@@ -703,16 +703,16 @@ export default function SocialRecoverySetup() {
                     parseInt(e.target.value) || 1,
                   )
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[var(--foreground-muted)] mt-1">
                 Number of friends required to approve recovery
               </p>
             </div>
 
             {/* Inheritor */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                 Inheritor Account
               </label>
               <input
@@ -722,9 +722,9 @@ export default function SocialRecoverySetup() {
                   updateFriendGroup(groupIndex, "inheritor", e.target.value)
                 }
                 placeholder="Enter inheritor's account address..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent font-mono text-sm text-[var(--foreground)]"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[var(--foreground-muted)] mt-1">
                 Account that will inherit if recovery is not claimed
               </p>
             </div>
@@ -732,7 +732,7 @@ export default function SocialRecoverySetup() {
             {/* Delays and Order */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Inheritance Delay (blocks)
                 </label>
                 <input
@@ -746,12 +746,12 @@ export default function SocialRecoverySetup() {
                       parseInt(e.target.value) || 1,
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Cancel Delay (blocks)
                 </label>
                 <input
@@ -765,12 +765,12 @@ export default function SocialRecoverySetup() {
                       parseInt(e.target.value) || 1,
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Inheritance Order
                 </label>
                 <input
@@ -784,12 +784,12 @@ export default function SocialRecoverySetup() {
                       parseInt(e.target.value) || 0,
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Deposit Amount
                 </label>
                 <input
@@ -803,7 +803,7 @@ export default function SocialRecoverySetup() {
                       parseFloat(e.target.value) || 0,
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
                 />
               </div>
             </div>
@@ -820,7 +820,7 @@ export default function SocialRecoverySetup() {
           txStatus === "submitting" ||
           txStatus === "in_block"
         }
-        className="w-full mt-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+        className="w-full mt-6 bg-[var(--polkadot-accent)] hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition-colors"
       >
         {txStatus === "signing" && "Waiting for signature..."}
         {txStatus === "submitting" && "Submitting transaction..."}
@@ -833,7 +833,7 @@ export default function SocialRecoverySetup() {
 
       {/* Transaction Status */}
       {txStatus !== "idle" && txStatus !== "error" && (
-        <div className="mt-4 p-3 bg-blue-100 border border-blue-400 text-blue-800 rounded">
+        <div className="mt-4 p-4 bg-[var(--info-bg)] border border-[var(--info-border)] text-[var(--info)] rounded-lg">
           <div className="flex items-center gap-2">
             {(txStatus === "signing" ||
               txStatus === "submitting" ||
@@ -875,14 +875,14 @@ export default function SocialRecoverySetup() {
 
       {/* Success Message */}
       {successMessage && (
-        <div className="mt-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded">
+        <div className="mt-4 p-4 bg-[var(--success-bg)] border border-[var(--success-border)] text-[var(--success)] rounded-lg">
           {successMessage}
         </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="mt-4 p-4 bg-[var(--error-bg)] border border-[var(--error-border)] text-[var(--error)] rounded-lg">
           {error}
         </div>
       )}

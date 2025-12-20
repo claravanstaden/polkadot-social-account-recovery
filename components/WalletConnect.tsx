@@ -11,7 +11,7 @@ export default function WalletConnect() {
       <div className="flex items-center gap-2">
         <button
           onClick={openModal}
-          className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg hover:border-[var(--border-color-dark)] transition-colors"
         >
           {wallet.logo && (
             <img
@@ -20,14 +20,14 @@ export default function WalletConnect() {
               className="w-5 h-5 rounded"
             />
           )}
-          <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
+          <span className="text-sm font-medium text-[var(--foreground)] max-w-[120px] truncate">
             {selectedAccount.name ||
               selectedAccount.address.slice(0, 8) + "..."}
           </span>
         </button>
         <button
           onClick={disconnect}
-          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+          className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--error)] hover:bg-[var(--error-bg)] rounded-lg transition-colors"
           title="Disconnect wallet"
         >
           <svg
@@ -53,7 +53,7 @@ export default function WalletConnect() {
     return (
       <button
         onClick={openModal}
-        className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors text-sm font-medium text-gray-700"
+        className="flex items-center gap-2 px-3 py-1.5 bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-lg hover:bg-[var(--warning-border)] transition-colors text-sm font-medium text-[var(--foreground)]"
       >
         {wallet.logo && (
           <img
@@ -70,7 +70,7 @@ export default function WalletConnect() {
   return (
     <button
       onClick={openModal}
-      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+      className="flex items-center gap-2 px-4 py-2 bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors text-sm font-medium"
     >
       Connect Wallet
     </button>

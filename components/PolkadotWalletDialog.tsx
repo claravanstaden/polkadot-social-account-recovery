@@ -88,18 +88,18 @@ export default function PolkadotWalletDialog() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={closeModal} />
+      <div className="absolute inset-0 bg-[var(--grey-950)]/50" onClick={closeModal} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden">
+      <div className="relative bg-[var(--surface)] rounded-2xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden border border-[var(--border-color)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)]">
+          <h2 className="font-display text-lg font-normal text-[var(--foreground)]">
             {connectedWallet ? "Select Account" : "Connect Wallet"}
           </h2>
           <button
             onClick={closeModal}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors"
           >
             <svg
               className="w-5 h-5"
@@ -120,7 +120,7 @@ export default function PolkadotWalletDialog() {
         {/* Content */}
         <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="mb-4 p-3 bg-[var(--error-bg)] border border-[var(--error-border)] rounded-lg text-[var(--error)] text-sm">
               {error}
             </div>
           )}
@@ -137,13 +137,13 @@ export default function PolkadotWalletDialog() {
                       className="w-6 h-6 rounded"
                     />
                   )}
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-[var(--foreground-secondary)]">
                     Connected to {connectedWallet.title}
                   </span>
                 </div>
                 <button
                   onClick={handleDisconnect}
-                  className="text-sm text-red-600 hover:text-red-700"
+                  className="text-sm text-[var(--error)] hover:underline"
                 >
                   Disconnect
                 </button>
@@ -154,14 +154,14 @@ export default function PolkadotWalletDialog() {
                   <button
                     key={account.address}
                     onClick={() => handleAccountSelect(account)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-color)] hover:border-[var(--polkadot-accent)] hover:bg-[var(--background)] transition-colors text-left"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex-shrink-0" />
+                    <div className="w-8 h-8 bg-gradient-to-br from-[var(--polkadot-accent)] to-[var(--grey-600)] rounded-full flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate">
+                      <p className="font-medium text-[var(--foreground)] truncate">
                         {account.name || "Unnamed Account"}
                       </p>
-                      <p className="text-xs text-gray-500 truncate">
+                      <p className="text-xs text-[var(--foreground-muted)] truncate font-mono">
                         {account.address.slice(0, 8)}...
                         {account.address.slice(-8)}
                       </p>
@@ -169,7 +169,7 @@ export default function PolkadotWalletDialog() {
                   </button>
                 ))
               ) : (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-[var(--foreground-muted)] text-center py-4">
                   {isConnecting
                     ? "Loading accounts..."
                     : "No accounts found in this wallet."}
@@ -180,7 +180,7 @@ export default function PolkadotWalletDialog() {
             // Show wallet list
             <div className="space-y-2">
               {availableWallets.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-[var(--foreground-muted)] text-center py-4">
                   Loading wallets...
                 </p>
               ) : (
@@ -189,7 +189,7 @@ export default function PolkadotWalletDialog() {
                     key={wallet.extensionName}
                     onClick={() => handleWalletClick(wallet)}
                     disabled={isConnecting}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-color)] hover:border-[var(--polkadot-accent)] hover:bg-[var(--background)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {wallet.logo && (
                       <img
@@ -199,17 +199,17 @@ export default function PolkadotWalletDialog() {
                       />
                     )}
                     <div className="flex-1 text-left">
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-[var(--foreground)]">
                         {wallet.title}
                       </p>
                       {!wallet.installed && (
-                        <p className="text-xs text-blue-600">
+                        <p className="text-xs text-[var(--polkadot-accent)]">
                           Click to install
                         </p>
                       )}
                     </div>
                     {wallet.installed && (
-                      <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                      <span className="text-xs text-[var(--success)] bg-[var(--success-bg)] px-2 py-0.5 rounded">
                         Installed
                       </span>
                     )}

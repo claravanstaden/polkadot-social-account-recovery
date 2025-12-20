@@ -1,18 +1,21 @@
 "use client";
 
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { NetworkProvider } from "@/lib/NetworkContext";
 import { PolkadotWalletProvider } from "@/lib/PolkadotWalletContext";
+import { ThemeProvider } from "@/lib/ThemeContext";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const dmSerifDisplay = DM_Serif_Display({
+  variable: "--font-dm-serif",
   subsets: ["latin"],
+  weight: ["400"],
 });
 
 export default function RootLayout({
@@ -21,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>Polkadot Social Recovery</title>
         <meta
@@ -30,11 +33,13 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${dmSans.variable} ${dmSerifDisplay.variable} antialiased`}
       >
-        <NetworkProvider>
-          <PolkadotWalletProvider>{children}</PolkadotWalletProvider>
-        </NetworkProvider>
+        <ThemeProvider>
+          <NetworkProvider>
+            <PolkadotWalletProvider>{children}</PolkadotWalletProvider>
+          </NetworkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

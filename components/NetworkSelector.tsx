@@ -97,7 +97,7 @@ export default function NetworkSelector() {
           id="network-select"
           value={selectedNetwork.id}
           onChange={(e) => setNetwork(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent bg-[var(--surface)] text-[var(--foreground)]"
         >
           {SUPPORTED_NETWORKS.map((network) => (
             <option key={network.id} value={network.id}>
@@ -109,7 +109,7 @@ export default function NetworkSelector() {
 
         <button
           onClick={handleOpenModal}
-          className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--grey-200)] rounded-lg transition-colors"
           title="Edit WSS URL"
         >
           <svg
@@ -135,9 +135,9 @@ export default function NetworkSelector() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-[var(--grey-950)]/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--surface)] rounded-2xl max-w-lg w-full p-6 border border-[var(--border-color)]">
+            <h2 className="font-display text-xl font-normal text-[var(--foreground)] mb-4">
               Edit WSS URL for {selectedNetwork.name}
             </h2>
 
@@ -145,7 +145,7 @@ export default function NetworkSelector() {
               <div>
                 <label
                   htmlFor="wss-url"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
                 >
                   AssetHub WSS URL
                 </label>
@@ -158,20 +158,20 @@ export default function NetworkSelector() {
                     setUrlError("");
                     setTestResult(null);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent font-mono text-sm text-[var(--foreground)]"
                   placeholder="wss://..."
                 />
                 {urlError && (
-                  <p className="mt-1 text-sm text-red-600">{urlError}</p>
+                  <p className="mt-1 text-sm text-[var(--error)]">{urlError}</p>
                 )}
               </div>
 
               {testResult && (
                 <div
-                  className={`p-3 rounded-md ${
+                  className={`p-3 rounded-lg ${
                     testResult.success
-                      ? "bg-green-50 text-green-800 border border-green-200"
-                      : "bg-red-50 text-red-800 border border-red-200"
+                      ? "bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]"
+                      : "bg-[var(--error-bg)] text-[var(--error)] border border-[var(--error-border)]"
                   }`}
                 >
                   <p className="text-sm">{testResult.message}</p>
@@ -182,28 +182,28 @@ export default function NetworkSelector() {
                 <button
                   onClick={handleTestConnection}
                   disabled={isTesting}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--grey-200)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isTesting ? "Testing..." : "Test Connection"}
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--grey-200)] transition-colors"
                 >
                   Reset to Default
                 </button>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
                 <button
                   onClick={handleCloseModal}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--grey-200)] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
                 >
                   Save
                 </button>

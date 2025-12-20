@@ -18,11 +18,11 @@ export default function Home() {
     <>
       <NavBar />
       <PolkadotWalletDialog />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+      <div className="min-h-screen bg-[var(--background)] py-12 px-4">
         <div className="max-w-4xl mx-auto">
           <SocialRecoverySetup />
 
-          <footer className="mt-12 text-center text-sm text-gray-500">
+          <footer className="mt-12 text-center text-sm text-[var(--foreground-muted)]">
             <p>
               Network: {selectedNetwork.name} | Endpoint: {getActiveWssUrl()}
             </p>
