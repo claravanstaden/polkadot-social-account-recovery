@@ -5,6 +5,7 @@ import type { ISubmittableResult } from "@polkadot/types/types";
 import { useNetwork } from "@/lib/NetworkContext";
 import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
+import NumberInput from "./NumberInput";
 
 type TxStatus =
   | "idle"
@@ -222,6 +223,18 @@ export default function SocialRecoverySetup() {
     }
   };
 
+  const moveFriendGroup = (fromIndex: number, direction: "up" | "down") => {
+    const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= friendGroups.length) return;
+
+    const newGroups = [...friendGroups];
+    [newGroups[fromIndex], newGroups[toIndex]] = [
+      newGroups[toIndex],
+      newGroups[fromIndex],
+    ];
+    setFriendGroups(newGroups);
+  };
+
   const updateFriendGroup = (
     groupIndex: number,
     field: keyof FriendGroup,
@@ -330,13 +343,18 @@ export default function SocialRecoverySetup() {
 
     // Prepare friend groups data for the extrinsic
     // Sort friends alphabetically as required by the pallet
-    const friendGroupsData = friendGroups.map((group) => ({
-      deposit: group.deposit,
+    // Use array index as inheritance_order (position in list = priority)
+    // Convert deposit from human-readable to chain format (10 or 12 decimals)
+    const tokenDecimals = selectedNetwork.tokenDecimals;
+    const friendGroupsData = friendGroups.map((group, index) => ({
+      deposit: BigInt(
+        Math.round(group.deposit * Math.pow(10, tokenDecimals)),
+      ).toString(),
       friends: group.friends.filter((f) => f.trim() !== "").sort(),
       friends_needed: group.friends_needed,
       inheritor: group.inheritor,
       inheritance_delay: group.inheritance_delay,
-      inheritance_order: group.inheritance_order,
+      inheritance_order: index, // Lower index = higher priority
       cancel_delay: group.cancel_delay,
     }));
 
@@ -556,55 +574,69 @@ export default function SocialRecoverySetup() {
                     </svg>
                   </button>
                 </div>
-                {existingFriendGroups.map((group, index) => (
-                  <div
-                    key={index}
-                    className="bg-[var(--surface)] p-3 rounded-lg border border-[var(--border-color)] mb-2 last:mb-0"
-                  >
-                    <p className="font-medium text-[var(--foreground)] mb-2">
-                      Friend Group {index + 1}
-                    </p>
-                    <div className="text-sm text-[var(--foreground-secondary)] space-y-1">
-                      <p>
-                        <span className="font-medium">Friends:</span>{" "}
-                        {group.friends.length}
-                      </p>
-                      <ul className="ml-4 text-xs font-mono text-[var(--foreground-muted)]">
-                        {group.friends.map((friend, i) => (
-                          <li key={i} className="truncate">
-                            {friend}
-                          </li>
-                        ))}
-                      </ul>
-                      <p>
-                        <span className="font-medium">Friends Needed:</span>{" "}
-                        {group.friends_needed}
-                      </p>
-                      <p>
-                        <span className="font-medium">Inheritor:</span>{" "}
-                        <span className="font-mono text-xs truncate inline-block max-w-xs align-bottom">
-                          {group.inheritor}
+                {existingFriendGroups
+                  .slice()
+                  .sort((a, b) => a.inheritance_order - b.inheritance_order)
+                  .map((group, index) => (
+                    <div
+                      key={index}
+                      className="bg-[var(--surface)] p-3 rounded-lg border border-[var(--border-color)] mb-2 last:mb-0"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <p className="font-medium text-[var(--foreground)]">
+                          Friend Group {index + 1}
+                        </p>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded ${
+                            group.inheritance_order === 0
+                              ? "bg-[var(--polkadot-accent)] text-white"
+                              : "bg-[var(--background)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                          }`}
+                        >
+                          {group.inheritance_order === 0
+                            ? "Highest Priority"
+                            : `Priority ${group.inheritance_order + 1}`}
                         </span>
-                      </p>
-                      <p>
-                        <span className="font-medium">Inheritance Delay:</span>{" "}
-                        {group.inheritance_delay} blocks
-                      </p>
-                      <p>
-                        <span className="font-medium">Cancel Delay:</span>{" "}
-                        {group.cancel_delay} blocks
-                      </p>
-                      <p>
-                        <span className="font-medium">Inheritance Order:</span>{" "}
-                        {group.inheritance_order}
-                      </p>
-                      <p>
-                        <span className="font-medium">Deposit:</span>{" "}
-                        {group.deposit}
-                      </p>
+                      </div>
+                      <div className="text-sm text-[var(--foreground-secondary)] space-y-1">
+                        <p>
+                          <span className="font-medium">Friends:</span>{" "}
+                          {group.friends.length}
+                        </p>
+                        <ul className="ml-4 text-xs font-mono text-[var(--foreground-muted)]">
+                          {group.friends.map((friend, i) => (
+                            <li key={i} className="truncate">
+                              {friend}
+                            </li>
+                          ))}
+                        </ul>
+                        <p>
+                          <span className="font-medium">Friends Needed:</span>{" "}
+                          {group.friends_needed}
+                        </p>
+                        <p>
+                          <span className="font-medium">Inheritor:</span>{" "}
+                          <span className="font-mono text-xs truncate inline-block max-w-xs align-bottom">
+                            {group.inheritor}
+                          </span>
+                        </p>
+                        <p>
+                          <span className="font-medium">
+                            Inheritance Delay:
+                          </span>{" "}
+                          {group.inheritance_delay} blocks
+                        </p>
+                        <p>
+                          <span className="font-medium">Cancel Delay:</span>{" "}
+                          {group.cancel_delay} blocks
+                        </p>
+                        <p>
+                          <span className="font-medium">Deposit:</span>{" "}
+                          {group.deposit}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           ) : (
@@ -618,11 +650,17 @@ export default function SocialRecoverySetup() {
       {/* Friend Groups Form */}
       <div className="border-t border-[var(--border-color)] pt-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[var(--foreground)]">
-            {existingFriendGroups && existingFriendGroups.length > 0
-              ? "Update Friend Groups"
-              : "Configure Friend Groups"}
-          </h3>
+          <div>
+            <h3 className="text-lg font-semibold text-[var(--foreground)]">
+              {existingFriendGroups && existingFriendGroups.length > 0
+                ? "Update Friend Groups"
+                : "Configure Friend Groups"}
+            </h3>
+            <p className="text-xs text-[var(--foreground-muted)] mt-1">
+              Order matters: higher priority groups can override lower priority
+              recoveries. Use the arrows to reorder.
+            </p>
+          </div>
           <button
             onClick={addFriendGroup}
             className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
@@ -637,9 +675,69 @@ export default function SocialRecoverySetup() {
             className="border border-[var(--border-color)] rounded-xl p-5 space-y-4 bg-[var(--background)]"
           >
             <div className="flex items-center justify-between">
-              <h4 className="font-semibold text-[var(--foreground)]">
-                Friend Group {groupIndex + 1}
-              </h4>
+              <div className="flex items-center gap-3">
+                {/* Priority reorder buttons */}
+                {friendGroups.length > 1 && (
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={() => moveFriendGroup(groupIndex, "up")}
+                      disabled={groupIndex === 0}
+                      className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)] rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      title="Move up (higher priority)"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 15l7-7 7 7"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => moveFriendGroup(groupIndex, "down")}
+                      disabled={groupIndex === friendGroups.length - 1}
+                      className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)] rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      title="Move down (lower priority)"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-semibold text-[var(--foreground)]">
+                    Friend Group {groupIndex + 1}
+                  </h4>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded ${
+                      groupIndex === 0
+                        ? "bg-[var(--polkadot-accent)] text-white"
+                        : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                    }`}
+                  >
+                    {groupIndex === 0
+                      ? "Highest Priority"
+                      : `Priority ${groupIndex + 1}`}
+                  </span>
+                </div>
+              </div>
               {friendGroups.length > 1 && (
                 <button
                   onClick={() => removeFriendGroup(groupIndex)}
@@ -687,28 +785,16 @@ export default function SocialRecoverySetup() {
             </div>
 
             {/* Friends Needed (Threshold) */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                Friends Needed (Threshold)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max={group.friends.filter((f) => f.trim()).length || 1}
-                value={group.friends_needed}
-                onChange={(e) =>
-                  updateFriendGroup(
-                    groupIndex,
-                    "friends_needed",
-                    parseInt(e.target.value) || 1,
-                  )
-                }
-                className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
-              />
-              <p className="text-xs text-[var(--foreground-muted)] mt-1">
-                Number of friends required to approve recovery
-              </p>
-            </div>
+            <NumberInput
+              label="Friends Needed (Threshold)"
+              value={group.friends_needed}
+              onChange={(value) =>
+                updateFriendGroup(groupIndex, "friends_needed", value)
+              }
+              min={1}
+              max={group.friends.filter((f) => f.trim()).length || 1}
+              hint="Number of friends required to approve recovery"
+            />
 
             {/* Inheritor */}
             <div>
@@ -729,82 +815,55 @@ export default function SocialRecoverySetup() {
               </p>
             </div>
 
-            {/* Delays and Order */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                  Inheritance Delay (blocks)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={group.inheritance_delay}
-                  onChange={(e) =>
-                    updateFriendGroup(
-                      groupIndex,
-                      "inheritance_delay",
-                      parseInt(e.target.value) || 1,
-                    )
-                  }
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
-                />
-              </div>
+            {/* Delays and Deposit */}
+            <div className="grid grid-cols-3 gap-4">
+              <NumberInput
+                label="Inheritance Delay"
+                value={group.inheritance_delay}
+                onChange={(value) =>
+                  updateFriendGroup(groupIndex, "inheritance_delay", value)
+                }
+                min={1}
+                suffix="blocks"
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                  Cancel Delay (blocks)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={group.cancel_delay}
-                  onChange={(e) =>
-                    updateFriendGroup(
-                      groupIndex,
-                      "cancel_delay",
-                      parseInt(e.target.value) || 1,
-                    )
-                  }
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                  Inheritance Order
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={group.inheritance_order}
-                  onChange={(e) =>
-                    updateFriendGroup(
-                      groupIndex,
-                      "inheritance_order",
-                      parseInt(e.target.value) || 0,
-                    )
-                  }
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
-                />
-              </div>
+              <NumberInput
+                label="Cancel Delay"
+                value={group.cancel_delay}
+                onChange={(value) =>
+                  updateFriendGroup(groupIndex, "cancel_delay", value)
+                }
+                min={1}
+                suffix="blocks"
+              />
 
               <div>
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                   Deposit Amount
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={group.deposit}
-                  onChange={(e) =>
-                    updateFriendGroup(
-                      groupIndex,
-                      "deposit",
-                      parseFloat(e.target.value) || 0,
-                    )
-                  }
-                  className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
-                />
+                <div className="focus-parent flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={group.deposit}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow empty, numbers, and decimals
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        updateFriendGroup(
+                          groupIndex,
+                          "deposit",
+                          value === "" ? 0 : parseFloat(value) || 0,
+                        );
+                      }
+                    }}
+                    placeholder="0.00"
+                    className="flex-1 h-11 px-3 bg-[var(--surface)] rounded-l-lg text-[var(--foreground)]"
+                  />
+                  <div className="flex items-center justify-center h-11 px-4 bg-[var(--surface)] border-l border-[var(--border-color)] rounded-r-lg text-sm font-medium text-[var(--foreground-muted)]">
+                    {selectedNetwork.tokenSymbol}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

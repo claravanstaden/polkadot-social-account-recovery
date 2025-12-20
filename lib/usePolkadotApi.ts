@@ -15,31 +15,34 @@ export interface UsePolkadotApiReturn {
 }
 
 export function usePolkadotApi(): UsePolkadotApiReturn {
-  const { getActiveWssUrl, selectedNetwork, customUrls } = useNetwork();
+  const { getActiveWssUrl } = useNetwork();
   const [api, setApi] = useState<ApiPromise | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentWssUrl = useRef<string>("");
+  const apiRef = useRef<ApiPromise | null>(null);
+
+  // Get the current active URL
+  const activeWssUrl = getActiveWssUrl();
 
   const disconnect = useCallback(async () => {
-    if (api) {
+    if (apiRef.current) {
       try {
-        await disconnectApi(api);
-        setApi(null);
-        setIsConnected(false);
-        currentWssUrl.current = "";
+        await disconnectApi(apiRef.current);
       } catch (err) {
         console.error("Error disconnecting:", err);
       }
+      apiRef.current = null;
+      setApi(null);
+      setIsConnected(false);
+      currentWssUrl.current = "";
     }
-  }, [api]);
+  }, []);
 
-  const connect = useCallback(async () => {
-    const wssUrl = getActiveWssUrl();
-
+  const connectToUrl = useCallback(async (wssUrl: string) => {
     // Don't reconnect if already connected to the same URL
-    if (api && isConnected && currentWssUrl.current === wssUrl) {
+    if (apiRef.current && currentWssUrl.current === wssUrl) {
       return;
     }
 
@@ -47,57 +50,70 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
     setError(null);
 
     // Disconnect from previous connection if exists
-    if (api) {
-      await disconnect();
+    if (apiRef.current) {
+      try {
+        await disconnectApi(apiRef.current);
+      } catch (err) {
+        console.error("Error disconnecting previous:", err);
+      }
+      apiRef.current = null;
+      setApi(null);
+      setIsConnected(false);
     }
 
     try {
+      console.log("Connecting to:", wssUrl);
       const newApi = await createApi(wssUrl);
 
       // Verify the connection is ready by getting chain info
-      await newApi.rpc.system.chain();
+      const chain = await newApi.rpc.system.chain();
+      console.log("Connected to chain:", chain.toString());
 
+      apiRef.current = newApi;
+      currentWssUrl.current = wssUrl;
       setApi(newApi);
       setIsConnected(true);
-      currentWssUrl.current = wssUrl;
       setError(null);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to connect to network";
+      console.error("Connection error:", errorMessage);
       setError(errorMessage);
+      apiRef.current = null;
       setApi(null);
       setIsConnected(false);
+      currentWssUrl.current = "";
     } finally {
       setIsConnecting(false);
     }
-  }, [api, isConnected, disconnect, getActiveWssUrl]);
+  }, []);
 
-  // Get the current active URL for dependency tracking
-  const activeWssUrl = getActiveWssUrl();
+  const connect = useCallback(async () => {
+    await connectToUrl(activeWssUrl);
+  }, [activeWssUrl, connectToUrl]);
 
-  // Auto-connect when network or URL changes
+  // Auto-connect when URL changes
   useEffect(() => {
-    // If URL changed, reconnect
+    // If URL changed from what we're connected to, reconnect
     if (currentWssUrl.current !== activeWssUrl) {
-      // Disconnect from previous connection if exists
-      if (api && isConnected) {
-        disconnect().then(() => {
-          connect();
-        });
-      } else {
-        connect();
-      }
+      console.log(
+        "URL changed from",
+        currentWssUrl.current,
+        "to",
+        activeWssUrl,
+      );
+      connectToUrl(activeWssUrl);
     }
-  }, [activeWssUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeWssUrl, connectToUrl]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (api) {
-        disconnectApi(api).catch(console.error);
+      if (apiRef.current) {
+        disconnectApi(apiRef.current).catch(console.error);
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     api,

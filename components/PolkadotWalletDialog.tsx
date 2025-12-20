@@ -88,7 +88,10 @@ export default function PolkadotWalletDialog() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-[var(--grey-950)]/50" onClick={closeModal} />
+      <div
+        className="absolute inset-0 bg-[var(--grey-950)]/50"
+        onClick={closeModal}
+      />
 
       {/* Modal */}
       <div className="relative bg-[var(--surface)] rounded-2xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden border border-[var(--border-color)]">
