@@ -25,6 +25,12 @@ interface FriendGroup {
   deposit: number;
 }
 
+// Helper to generate Subscan account URL
+const getSubscanUrl = (networkId: string, address: string): string | null => {
+  if (networkId === "development") return null;
+  return `https://assethub-${networkId}.subscan.io/account/${address}`;
+};
+
 export default function SocialRecoverySetup() {
   const { selectedNetwork, getActiveWssUrl } = useNetwork();
   const {
@@ -46,6 +52,8 @@ export default function SocialRecoverySetup() {
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
 
   // Existing friend groups from chain
   const [existingFriendGroups, setExistingFriendGroups] = useState<
@@ -425,8 +433,9 @@ export default function SocialRecoverySetup() {
               setSuccessMessage(
                 `Social recovery configured successfully! Transaction hash: ${hash.toHex()}`,
               );
-              // Refresh existing friend groups
+              // Refresh existing friend groups and close form
               fetchExistingFriendGroups();
+              setIsFormVisible(false);
             }
 
             unsub();
@@ -452,20 +461,113 @@ export default function SocialRecoverySetup() {
     fetchExistingFriendGroups,
   ]);
 
+  const handleDeleteFriendGroups = useCallback(async () => {
+    if (!window.confirm("Are you sure you want to delete all friend groups? This action cannot be undone.")) {
+      return;
+    }
+
+    setError(null);
+    setSuccessMessage(null);
+    setTxHash(null);
+
+    if (!selectedAccount) {
+      setError("Please select an account");
+      return;
+    }
+
+    if (!api || !isConnected) {
+      setError("Not connected to network");
+      return;
+    }
+
+    if (!wallet || !walletSelectedAccount) {
+      setError("Please connect your wallet and select an account");
+      return;
+    }
+
+    try {
+      setTxStatus("signing");
+
+      const signer = wallet.signer;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiTx = api.tx as any;
+      const recoveryPallet =
+        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+
+      if (!recoveryPallet || !recoveryPallet.setFriendGroups) {
+        setError("Recovery pallet not found");
+        setTxStatus("error");
+        return;
+      }
+
+      // Pass empty array to delete all friend groups
+      const tx = recoveryPallet.setFriendGroups([]);
+
+      setTxStatus("submitting");
+
+      const unsub = await tx.signAndSend(
+        selectedAccount,
+        { signer },
+        (result: ISubmittableResult) => {
+          const { status, txHash: hash, dispatchError } = result;
+          setTxHash(hash.toHex());
+
+          if (status.isInBlock) {
+            setTxStatus("in_block");
+          }
+
+          if (status.isFinalized) {
+            setTxStatus("finalized");
+
+            if (dispatchError) {
+              let errorMessage = "Transaction failed";
+              if (dispatchError.isModule) {
+                const decoded = api.registry.findMetaError(
+                  dispatchError.asModule,
+                );
+                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+              } else {
+                errorMessage = dispatchError.toString();
+              }
+              setError(errorMessage);
+              setTxStatus("error");
+            } else {
+              setSuccessMessage("Friend groups deleted successfully!");
+              fetchExistingFriendGroups();
+            }
+
+            unsub();
+          }
+        },
+      );
+    } catch (err) {
+      console.error("Transaction error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to submit transaction",
+      );
+      setTxStatus("error");
+    }
+  }, [
+    selectedAccount,
+    api,
+    isConnected,
+    wallet,
+    walletSelectedAccount,
+    fetchExistingFriendGroups,
+  ]);
+
   if (!wallet) {
     return null;
   }
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)]">
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="font-display text-2xl font-normal mb-2 text-[var(--foreground)]">
             Setup Social Recovery
           </h2>
-          <p className="text-sm text-[var(--foreground-secondary)]">
-            Configure friend groups for account recovery and inheritance
-          </p>
         </div>
         <div className="flex-shrink-0 ml-4">
           {isConnected ? (
@@ -497,7 +599,7 @@ export default function SocialRecoverySetup() {
           htmlFor="account-select"
           className="block text-sm font-medium text-[var(--foreground)] mb-2"
         >
-          Account to Configure
+          Account
         </label>
         {accounts.length === 0 ? (
           <div className="text-center py-4 text-[var(--foreground-muted)]">
@@ -528,24 +630,23 @@ export default function SocialRecoverySetup() {
       </div>
 
       {/* Existing Friend Groups from Chain */}
-      {isConnected && selectedAccount && (
+      {isConnected && selectedAccount && !isFormVisible && (
         <div className="mb-6 border-t border-[var(--border-color)] pt-6">
           <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
-            Existing Configuration
+            Recovery
           </h3>
           {isLoadingExisting ? (
             <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
               Loading existing friend groups...
             </div>
           ) : existingFriendGroups && existingFriendGroups.length > 0 ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-[var(--success-bg)] border border-[var(--success-border)] rounded-lg">
-                <div className="flex items-start justify-between mb-3">
-                  <p className="text-sm text-[var(--success)]">
-                    This account has {existingFriendGroups.length} friend group
-                    {existingFriendGroups.length !== 1 ? "s" : ""} configured on
-                    chain.
-                  </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-[var(--foreground-muted)]">
+                  {existingFriendGroups.length} friend group
+                  {existingFriendGroups.length !== 1 ? "s" : ""} configured
+                </p>
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => {
                       setFriendGroups(
@@ -555,9 +656,10 @@ export default function SocialRecoverySetup() {
                             group.friends.length > 0 ? group.friends : [""],
                         })),
                       );
+                      setIsFormVisible(true);
                     }}
-                    className="p-1.5 text-[var(--success)] hover:bg-[var(--success-bg)] rounded transition-colors"
-                    title="Load into form for editing"
+                    className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--border-color)] rounded transition-colors"
+                    title="Edit friend groups"
                   >
                     <svg
                       className="w-4 h-4"
@@ -573,105 +675,167 @@ export default function SocialRecoverySetup() {
                       />
                     </svg>
                   </button>
-                </div>
-                {existingFriendGroups
-                  .slice()
-                  .sort((a, b) => a.inheritance_order - b.inheritance_order)
-                  .map((group, index) => (
-                    <div
-                      key={index}
-                      className="bg-[var(--surface)] p-3 rounded-lg border border-[var(--border-color)] mb-2 last:mb-0"
+                  <button
+                    onClick={handleDeleteFriendGroups}
+                    disabled={txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
+                    className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--error)] hover:bg-[var(--error-bg)] rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete all friend groups"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="font-medium text-[var(--foreground)]">
-                          Friend Group {index + 1}
-                        </p>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            group.inheritance_order === 0
-                              ? "bg-[var(--polkadot-accent)] text-white"
-                              : "bg-[var(--background)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
-                          }`}
-                        >
-                          {group.inheritance_order === 0
-                            ? "Highest Priority"
-                            : `Priority ${group.inheritance_order + 1}`}
-                        </span>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {existingFriendGroups
+                .slice()
+                .sort((a, b) => a.inheritance_order - b.inheritance_order)
+                .map((group, index) => (
+                  <div
+                    key={index}
+                    className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--background)]"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="font-medium text-[var(--foreground)]">
+                        Group {index + 1}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${
+                          group.inheritance_order === 0
+                            ? "bg-[var(--polkadot-accent)] text-white"
+                            : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                        }`}
+                      >
+                        {group.inheritance_order === 0
+                          ? "Highest Priority"
+                          : `Priority ${group.inheritance_order + 1}`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-3">
+                      <div>
+                        <span className="text-[var(--foreground-muted)]">Threshold</span>
+                        <p className="text-[var(--foreground)]">{group.friends_needed} of {group.friends.length}</p>
                       </div>
-                      <div className="text-sm text-[var(--foreground-secondary)] space-y-1">
-                        <p>
-                          <span className="font-medium">Friends:</span>{" "}
-                          {group.friends.length}
-                        </p>
-                        <ul className="ml-4 text-xs font-mono text-[var(--foreground-muted)]">
-                          {group.friends.map((friend, i) => (
-                            <li key={i} className="truncate">
-                              {friend}
-                            </li>
-                          ))}
-                        </ul>
-                        <p>
-                          <span className="font-medium">Friends Needed:</span>{" "}
-                          {group.friends_needed}
-                        </p>
-                        <p>
-                          <span className="font-medium">Inheritor:</span>{" "}
-                          <span className="font-mono text-xs truncate inline-block max-w-xs align-bottom">
-                            {group.inheritor}
-                          </span>
-                        </p>
-                        <p>
-                          <span className="font-medium">
-                            Inheritance Delay:
-                          </span>{" "}
-                          {group.inheritance_delay} blocks
-                        </p>
-                        <p>
-                          <span className="font-medium">Cancel Delay:</span>{" "}
-                          {group.cancel_delay} blocks
-                        </p>
-                        <p>
-                          <span className="font-medium">Deposit:</span>{" "}
-                          {group.deposit}
-                        </p>
+                      <div>
+                        <span className="text-[var(--foreground-muted)]">Inheritance Delay</span>
+                        <p className="text-[var(--foreground)]">{group.inheritance_delay} blocks</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--foreground-muted)]">Cancel Delay</span>
+                        <p className="text-[var(--foreground)]">{group.cancel_delay} blocks</p>
                       </div>
                     </div>
-                  ))}
-              </div>
+
+                    <div className="text-sm mb-2">
+                      <span className="text-[var(--foreground-muted)]">Inheritor</span>
+                      {getSubscanUrl(selectedNetwork.id, group.inheritor) ? (
+                        <a
+                          href={getSubscanUrl(selectedNetwork.id, group.inheritor)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block font-mono text-xs text-[var(--polkadot-accent)] hover:underline truncate"
+                        >
+                          {group.inheritor}
+                        </a>
+                      ) : (
+                        <p className="font-mono text-xs text-[var(--foreground)] truncate">{group.inheritor}</p>
+                      )}
+                    </div>
+
+                    <details className="text-sm">
+                      <summary className="text-[var(--foreground-muted)] cursor-pointer hover:text-[var(--foreground)]">
+                        {group.friends.length} friend{group.friends.length !== 1 ? "s" : ""}
+                      </summary>
+                      <ul className="mt-2 space-y-1">
+                        {group.friends.map((friend, i) => (
+                          <li key={i} className="font-mono text-xs truncate">
+                            {getSubscanUrl(selectedNetwork.id, friend) ? (
+                              <a
+                                href={getSubscanUrl(selectedNetwork.id, friend)!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--polkadot-accent)] hover:underline"
+                              >
+                                {friend}
+                              </a>
+                            ) : (
+                              <span className="text-[var(--foreground-muted)]">{friend}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </div>
+                ))}
             </div>
           ) : (
-            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg text-[var(--foreground-muted)] text-sm">
-              No friend groups configured for this account yet.
+            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg flex items-center justify-between">
+              <span className="text-[var(--foreground-muted)] text-sm">
+                No recovery configured for this account yet.
+              </span>
+              <button
+                onClick={() => setIsFormVisible(true)}
+                className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
+              >
+                Set Recovery
+              </button>
             </div>
           )}
         </div>
       )}
 
       {/* Friend Groups Form */}
-      <div className="border-t border-[var(--border-color)] pt-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-[var(--foreground)]">
-              {existingFriendGroups && existingFriendGroups.length > 0
-                ? "Update Friend Groups"
-                : "Configure Friend Groups"}
-            </h3>
-            <p className="text-xs text-[var(--foreground-muted)] mt-1">
-              Order matters: higher priority groups can override lower priority
-              recoveries. Use the arrows to reorder.
-            </p>
+      {isFormVisible && (
+        <div className="border-t border-[var(--border-color)] pt-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                {existingFriendGroups && existingFriendGroups.length > 0
+                  ? "Update Recovery"
+                  : "Set Recovery"}
+              </h3>
+              <button
+                onClick={() => setIsInfoDialogOpen(true)}
+                className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--border-color)] rounded transition-colors"
+                title="Learn more"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <button
+              onClick={addFriendGroup}
+              className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
+            >
+              + Add Friend Group
+            </button>
           </div>
-          <button
-            onClick={addFriendGroup}
-            className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
-          >
-            + Add Friend Group
-          </button>
-        </div>
 
         {friendGroups.map((group, groupIndex) => (
-          <div
-            key={groupIndex}
+            <div
+              key={groupIndex}
             className="border border-[var(--border-color)] rounded-xl p-5 space-y-4 bg-[var(--background)]"
           >
             <div className="flex items-center justify-between">
@@ -785,16 +949,17 @@ export default function SocialRecoverySetup() {
             </div>
 
             {/* Friends Needed (Threshold) */}
-            <NumberInput
-              label="Friends Needed (Threshold)"
-              value={group.friends_needed}
-              onChange={(value) =>
-                updateFriendGroup(groupIndex, "friends_needed", value)
-              }
-              min={1}
-              max={group.friends.filter((f) => f.trim()).length || 1}
-              hint="Number of friends required to approve recovery"
-            />
+            <div className="max-w-[190px]">
+              <NumberInput
+                label="Friends Needed (Threshold)"
+                value={group.friends_needed}
+                onChange={(value) =>
+                  updateFriendGroup(groupIndex, "friends_needed", value)
+                }
+                min={1}
+                max={group.friends.filter((f) => f.trim()).length || 1}
+              />
+            </div>
 
             {/* Inheritor */}
             <div>
@@ -810,9 +975,6 @@ export default function SocialRecoverySetup() {
                 placeholder="Enter inheritor's account address..."
                 className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors font-mono text-sm text-[var(--foreground)]"
               />
-              <p className="text-xs text-[var(--foreground-muted)] mt-1">
-                Account that will inherit if recovery is not claimed
-              </p>
             </div>
 
             {/* Delays and Deposit */}
@@ -868,27 +1030,36 @@ export default function SocialRecoverySetup() {
             </div>
           </div>
         ))}
-      </div>
 
-      <button
-        onClick={handleSetupRecovery}
-        disabled={
-          !selectedAccount ||
-          !isConnected ||
-          txStatus === "signing" ||
-          txStatus === "submitting" ||
-          txStatus === "in_block"
-        }
-        className="w-full mt-6 bg-[var(--polkadot-accent)] hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition-colors"
-      >
-        {txStatus === "signing" && "Waiting for signature..."}
-        {txStatus === "submitting" && "Submitting transaction..."}
-        {txStatus === "in_block" && "Waiting for finalization..."}
-        {(txStatus === "idle" ||
-          txStatus === "finalized" ||
-          txStatus === "error") &&
-          `Setup Recovery with ${friendGroups.length} Friend Group${friendGroups.length !== 1 ? "s" : ""}`}
-      </button>
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsFormVisible(false)}
+              className="flex-1 py-4 px-4 border border-[var(--border-color)] text-[var(--foreground)] font-semibold rounded-xl hover:bg-[var(--border-color)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSetupRecovery}
+              disabled={
+                !selectedAccount ||
+                !isConnected ||
+                txStatus === "signing" ||
+                txStatus === "submitting" ||
+                txStatus === "in_block"
+              }
+              className="flex-1 bg-[var(--polkadot-accent)] hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition-colors"
+            >
+              {txStatus === "signing" && "Waiting for signature..."}
+              {txStatus === "submitting" && "Submitting transaction..."}
+              {txStatus === "in_block" && "Waiting for finalization..."}
+              {(txStatus === "idle" ||
+                txStatus === "finalized" ||
+                txStatus === "error") &&
+                `Save ${friendGroups.length} Friend Group${friendGroups.length !== 1 ? "s" : ""}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Transaction Status */}
       {txStatus !== "idle" && txStatus !== "error" && (
@@ -943,6 +1114,63 @@ export default function SocialRecoverySetup() {
       {error && (
         <div className="mt-4 p-4 bg-[var(--error-bg)] border border-[var(--error-border)] text-[var(--error)] rounded-lg">
           {error}
+        </div>
+      )}
+
+      {/* Info Dialog */}
+      {isInfoDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-[var(--grey-950)]/50"
+            onClick={() => setIsInfoDialogOpen(false)}
+          />
+          <div className="relative bg-[var(--surface)] rounded-2xl max-w-lg w-full mx-4 p-6 border border-[var(--border-color)] max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-xl text-[var(--foreground)]">
+                How Social Recovery Works
+              </h2>
+              <button
+                onClick={() => setIsInfoDialogOpen(false)}
+                className="text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-[var(--foreground-secondary)]">
+              <div>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">Friend Groups</h3>
+                <p>A friend group is a set of trusted accounts that can help recover your account. You can create multiple groups with different priority levels.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">Priority Order</h3>
+                <p>Higher priority groups can override recovery attempts from lower priority groups. Use the arrows to reorder groups.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">Threshold</h3>
+                <p>The number of friends required to approve a recovery. For example, &quot;2 of 3&quot; means any 2 friends from the group can initiate recovery.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">Inheritor</h3>
+                <p>The account that will receive your assets if friends initiate inheritance and you don&apos;t claim them within the delay period.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">Inheritance Delay</h3>
+                <p>Number of blocks to wait before inheritance can be claimed. Gives you time to cancel unwanted recovery attempts.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">Cancel Delay</h3>
+                <p>Number of blocks after which a pending recovery can be cancelled by a higher-priority group.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsInfoDialogOpen(false)}
+              className="w-full mt-6 py-3 bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] transition-colors"
+            >
+              Got it
+            </button>
+          </div>
         </div>
       )}
     </div>
