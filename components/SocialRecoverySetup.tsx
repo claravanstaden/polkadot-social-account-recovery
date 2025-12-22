@@ -462,7 +462,11 @@ export default function SocialRecoverySetup() {
   ]);
 
   const handleDeleteFriendGroups = useCallback(async () => {
-    if (!window.confirm("Are you sure you want to delete all friend groups? This action cannot be undone.")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete all friend groups? This action cannot be undone.",
+      )
+    ) {
       return;
     }
 
@@ -565,7 +569,7 @@ export default function SocialRecoverySetup() {
     <div className="w-full max-w-4xl mx-auto p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)]">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="font-display text-2xl font-normal mb-2 text-[var(--foreground)]">
+          <h2 className="text-2xl font-medium mb-2 text-[var(--foreground)]">
             Setup Social Recovery
           </h2>
         </div>
@@ -677,7 +681,11 @@ export default function SocialRecoverySetup() {
                   </button>
                   <button
                     onClick={handleDeleteFriendGroups}
-                    disabled={txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
+                    disabled={
+                      txStatus === "signing" ||
+                      txStatus === "submitting" ||
+                      txStatus === "in_block"
+                    }
                     className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--error)] hover:bg-[var(--error-bg)] rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Delete all friend groups"
                   >
@@ -724,24 +732,40 @@ export default function SocialRecoverySetup() {
 
                     <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-3">
                       <div>
-                        <span className="text-[var(--foreground-muted)]">Threshold</span>
-                        <p className="text-[var(--foreground)]">{group.friends_needed} of {group.friends.length}</p>
+                        <span className="text-[var(--foreground-muted)]">
+                          Threshold
+                        </span>
+                        <p className="text-[var(--foreground)]">
+                          {group.friends_needed} of {group.friends.length}
+                        </p>
                       </div>
                       <div>
-                        <span className="text-[var(--foreground-muted)]">Inheritance Delay</span>
-                        <p className="text-[var(--foreground)]">{group.inheritance_delay} blocks</p>
+                        <span className="text-[var(--foreground-muted)]">
+                          Inheritance Delay
+                        </span>
+                        <p className="text-[var(--foreground)]">
+                          {group.inheritance_delay} blocks
+                        </p>
                       </div>
                       <div>
-                        <span className="text-[var(--foreground-muted)]">Cancel Delay</span>
-                        <p className="text-[var(--foreground)]">{group.cancel_delay} blocks</p>
+                        <span className="text-[var(--foreground-muted)]">
+                          Cancel Delay
+                        </span>
+                        <p className="text-[var(--foreground)]">
+                          {group.cancel_delay} blocks
+                        </p>
                       </div>
                     </div>
 
                     <div className="text-sm mb-2">
-                      <span className="text-[var(--foreground-muted)]">Inheritor</span>
+                      <span className="text-[var(--foreground-muted)]">
+                        Inheritor
+                      </span>
                       {getSubscanUrl(selectedNetwork.id, group.inheritor) ? (
                         <a
-                          href={getSubscanUrl(selectedNetwork.id, group.inheritor)!}
+                          href={
+                            getSubscanUrl(selectedNetwork.id, group.inheritor)!
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block font-mono text-xs text-[var(--polkadot-accent)] hover:underline truncate"
@@ -749,20 +773,25 @@ export default function SocialRecoverySetup() {
                           {group.inheritor}
                         </a>
                       ) : (
-                        <p className="font-mono text-xs text-[var(--foreground)] truncate">{group.inheritor}</p>
+                        <p className="font-mono text-xs text-[var(--foreground)] truncate">
+                          {group.inheritor}
+                        </p>
                       )}
                     </div>
 
                     <details className="text-sm">
                       <summary className="text-[var(--foreground-muted)] cursor-pointer hover:text-[var(--foreground)]">
-                        {group.friends.length} friend{group.friends.length !== 1 ? "s" : ""}
+                        {group.friends.length} friend
+                        {group.friends.length !== 1 ? "s" : ""}
                       </summary>
                       <ul className="mt-2 space-y-1">
                         {group.friends.map((friend, i) => (
                           <li key={i} className="font-mono text-xs truncate">
                             {getSubscanUrl(selectedNetwork.id, friend) ? (
                               <a
-                                href={getSubscanUrl(selectedNetwork.id, friend)!}
+                                href={
+                                  getSubscanUrl(selectedNetwork.id, friend)!
+                                }
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-[var(--polkadot-accent)] hover:underline"
@@ -770,7 +799,9 @@ export default function SocialRecoverySetup() {
                                 {friend}
                               </a>
                             ) : (
-                              <span className="text-[var(--foreground-muted)]">{friend}</span>
+                              <span className="text-[var(--foreground-muted)]">
+                                {friend}
+                              </span>
                             )}
                           </li>
                         ))}
@@ -833,203 +864,229 @@ export default function SocialRecoverySetup() {
             </button>
           </div>
 
-        {friendGroups.map((group, groupIndex) => (
+          {friendGroups.map((group, groupIndex) => (
             <div
               key={groupIndex}
-            className="border border-[var(--border-color)] rounded-xl p-5 space-y-4 bg-[var(--background)]"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {/* Priority reorder buttons */}
-                {friendGroups.length > 1 && (
-                  <div className="flex flex-col gap-0.5">
-                    <button
-                      onClick={() => moveFriendGroup(groupIndex, "up")}
-                      disabled={groupIndex === 0}
-                      className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)] rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move up (higher priority)"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 15l7-7 7 7"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => moveFriendGroup(groupIndex, "down")}
-                      disabled={groupIndex === friendGroups.length - 1}
-                      className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)] rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move down (lower priority)"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                <div>
-                  <h4 className="font-semibold text-[var(--foreground)]">
-                    Friend Group {groupIndex + 1}
-                  </h4>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded ${
-                      groupIndex === 0
-                        ? "bg-[var(--polkadot-accent)] text-white"
-                        : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
-                    }`}
-                  >
-                    {groupIndex === 0
-                      ? "Highest Priority"
-                      : `Priority ${groupIndex + 1}`}
-                  </span>
-                </div>
-              </div>
-              {friendGroups.length > 1 && (
-                <button
-                  onClick={() => removeFriendGroup(groupIndex)}
-                  className="text-sm text-[var(--error)] hover:underline"
-                >
-                  Remove Group
-                </button>
-              )}
-            </div>
-
-            {/* Friends */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                Friend Accounts
-              </label>
-              <div className="space-y-2">
-                {group.friends.map((friend, friendIndex) => (
-                  <div key={friendIndex} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={friend}
-                      onChange={(e) =>
-                        updateFriend(groupIndex, friendIndex, e.target.value)
-                      }
-                      placeholder="Enter friend's account address..."
-                      className="focus-border-only flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm font-mono text-[var(--foreground)]"
-                    />
-                    {group.friends.length > 1 && (
+              className="border border-[var(--border-color)] rounded-xl p-5 space-y-4 bg-[var(--background)]"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {/* Priority reorder buttons */}
+                  {friendGroups.length > 1 && (
+                    <div className="flex flex-col gap-0.5">
                       <button
-                        onClick={() => removeFriend(groupIndex, friendIndex)}
-                        className="px-4 py-2 bg-[var(--error-bg)] text-[var(--error)] rounded-lg hover:bg-[var(--error-border)] transition-colors"
+                        onClick={() => moveFriendGroup(groupIndex, "up")}
+                        disabled={groupIndex === 0}
+                        className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)] rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Move up (higher priority)"
                       >
-                        Remove
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 15l7-7 7 7"
+                          />
+                        </svg>
                       </button>
-                    )}
+                      <button
+                        onClick={() => moveFriendGroup(groupIndex, "down")}
+                        disabled={groupIndex === friendGroups.length - 1}
+                        className="p-1 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)] rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Move down (lower priority)"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-semibold text-[var(--foreground)]">
+                      Friend Group {groupIndex + 1}
+                    </h4>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded ${
+                        groupIndex === 0
+                          ? "bg-[var(--polkadot-accent)] text-white"
+                          : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                      }`}
+                    >
+                      {groupIndex === 0
+                        ? "Highest Priority"
+                        : `Priority ${groupIndex + 1}`}
+                    </span>
                   </div>
-                ))}
+                </div>
+                {friendGroups.length > 1 && (
+                  <button
+                    onClick={() => removeFriendGroup(groupIndex)}
+                    className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--error)] hover:bg-[var(--error-bg)] rounded transition-colors"
+                    title="Remove group"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                )}
               </div>
-              <button
-                onClick={() => addFriend(groupIndex)}
-                className="mt-2 text-sm text-[var(--polkadot-accent)] hover:underline"
-              >
-                + Add Friend
-              </button>
-            </div>
 
-            {/* Friends Needed (Threshold) */}
-            <div className="max-w-[190px]">
-              <NumberInput
-                label="Friends Needed (Threshold)"
-                value={group.friends_needed}
-                onChange={(value) =>
-                  updateFriendGroup(groupIndex, "friends_needed", value)
-                }
-                min={1}
-                max={group.friends.filter((f) => f.trim()).length || 1}
-              />
-            </div>
-
-            {/* Inheritor */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                Inheritor Account
-              </label>
-              <input
-                type="text"
-                value={group.inheritor}
-                onChange={(e) =>
-                  updateFriendGroup(groupIndex, "inheritor", e.target.value)
-                }
-                placeholder="Enter inheritor's account address..."
-                className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors font-mono text-sm text-[var(--foreground)]"
-              />
-            </div>
-
-            {/* Delays and Deposit */}
-            <div className="grid grid-cols-3 gap-4">
-              <NumberInput
-                label="Inheritance Delay"
-                value={group.inheritance_delay}
-                onChange={(value) =>
-                  updateFriendGroup(groupIndex, "inheritance_delay", value)
-                }
-                min={1}
-                suffix="blocks"
-              />
-
-              <NumberInput
-                label="Cancel Delay"
-                value={group.cancel_delay}
-                onChange={(value) =>
-                  updateFriendGroup(groupIndex, "cancel_delay", value)
-                }
-                min={1}
-                suffix="blocks"
-              />
-
+              {/* Friends */}
               <div>
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                  Deposit Amount
+                  Friend Accounts
                 </label>
-                <div className="focus-parent flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={group.deposit}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Allow empty, numbers, and decimals
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        updateFriendGroup(
-                          groupIndex,
-                          "deposit",
-                          value === "" ? 0 : parseFloat(value) || 0,
-                        );
-                      }
-                    }}
-                    placeholder="0.00"
-                    className="flex-1 h-11 px-3 bg-[var(--surface)] rounded-l-lg text-[var(--foreground)]"
-                  />
-                  <div className="flex items-center justify-center h-11 px-4 bg-[var(--surface)] border-l border-[var(--border-color)] rounded-r-lg text-sm font-medium text-[var(--foreground-muted)]">
-                    {selectedNetwork.tokenSymbol}
+                <div className="space-y-2">
+                  {group.friends.map((friend, friendIndex) => (
+                    <div key={friendIndex} className="relative">
+                      <input
+                        type="text"
+                        value={friend}
+                        onChange={(e) =>
+                          updateFriend(groupIndex, friendIndex, e.target.value)
+                        }
+                        placeholder="Enter friend's account address..."
+                        className={`focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm text-[var(--foreground)] ${group.friends.length > 1 ? "pr-10" : ""}`}
+                      />
+                      {group.friends.length > 1 && (
+                        <button
+                          onClick={() => removeFriend(groupIndex, friendIndex)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--foreground-muted)] hover:text-[var(--error)] transition-colors"
+                          title="Remove friend"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => addFriend(groupIndex)}
+                  className="mt-2 text-sm text-[var(--polkadot-accent)] hover:underline"
+                >
+                  + Add Friend
+                </button>
+              </div>
+
+              {/* Friends Needed (Threshold) */}
+              <div className="max-w-[190px]">
+                <NumberInput
+                  label="Friends Needed (Threshold)"
+                  value={group.friends_needed}
+                  onChange={(value) =>
+                    updateFriendGroup(groupIndex, "friends_needed", value)
+                  }
+                  min={1}
+                  max={group.friends.filter((f) => f.trim()).length || 1}
+                />
+              </div>
+
+              {/* Inheritor */}
+              <div>
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                  Inheritor Account
+                </label>
+                <input
+                  type="text"
+                  value={group.inheritor}
+                  onChange={(e) =>
+                    updateFriendGroup(groupIndex, "inheritor", e.target.value)
+                  }
+                  placeholder="Enter inheritor's account address..."
+                  className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm text-[var(--foreground)]"
+                />
+              </div>
+
+              {/* Delays and Deposit */}
+              <div className="grid grid-cols-3 gap-4">
+                <NumberInput
+                  label="Inheritance Delay"
+                  value={group.inheritance_delay}
+                  onChange={(value) =>
+                    updateFriendGroup(groupIndex, "inheritance_delay", value)
+                  }
+                  min={1}
+                  suffix="blocks"
+                />
+
+                <NumberInput
+                  label="Cancel Delay"
+                  value={group.cancel_delay}
+                  onChange={(value) =>
+                    updateFriendGroup(groupIndex, "cancel_delay", value)
+                  }
+                  min={1}
+                  suffix="blocks"
+                />
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Deposit Amount
+                  </label>
+                  <div className="focus-parent flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={group.deposit}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow empty, numbers, and decimals
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          updateFriendGroup(
+                            groupIndex,
+                            "deposit",
+                            value === "" ? 0 : parseFloat(value) || 0,
+                          );
+                        }
+                      }}
+                      placeholder="0.00"
+                      className="flex-1 h-11 px-3 bg-[var(--surface)] rounded-l-lg text-[var(--foreground)]"
+                    />
+                    <div className="flex items-center justify-center h-11 px-4 bg-[var(--surface)] border-l border-[var(--border-color)] rounded-r-lg text-sm font-medium text-[var(--foreground-muted)]">
+                      {selectedNetwork.tokenSymbol}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
 
           <div className="flex gap-3 mt-6">
             <button
@@ -1133,35 +1190,78 @@ export default function SocialRecoverySetup() {
                 onClick={() => setIsInfoDialogOpen(false)}
                 className="text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
             <div className="space-y-4 text-sm text-[var(--foreground-secondary)]">
               <div>
-                <h3 className="font-semibold text-[var(--foreground)] mb-1">Friend Groups</h3>
-                <p>A friend group is a set of trusted accounts that can help recover your account. You can create multiple groups with different priority levels.</p>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">
+                  Friend Groups
+                </h3>
+                <p>
+                  A friend group is a set of trusted accounts that can help
+                  recover your account. You can create multiple groups with
+                  different priority levels.
+                </p>
               </div>
               <div>
-                <h3 className="font-semibold text-[var(--foreground)] mb-1">Priority Order</h3>
-                <p>Higher priority groups can override recovery attempts from lower priority groups. Use the arrows to reorder groups.</p>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">
+                  Priority Order
+                </h3>
+                <p>
+                  Higher priority groups can override recovery attempts from
+                  lower priority groups. Use the arrows to reorder groups.
+                </p>
               </div>
               <div>
-                <h3 className="font-semibold text-[var(--foreground)] mb-1">Threshold</h3>
-                <p>The number of friends required to approve a recovery. For example, &quot;2 of 3&quot; means any 2 friends from the group can initiate recovery.</p>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">
+                  Threshold
+                </h3>
+                <p>
+                  The number of friends required to approve a recovery. For
+                  example, &quot;2 of 3&quot; means any 2 friends from the group
+                  can initiate recovery.
+                </p>
               </div>
               <div>
-                <h3 className="font-semibold text-[var(--foreground)] mb-1">Inheritor</h3>
-                <p>The account that will receive your assets if friends initiate inheritance and you don&apos;t claim them within the delay period.</p>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">
+                  Inheritor
+                </h3>
+                <p>
+                  The account that will receive your assets if friends initiate
+                  inheritance and you don&apos;t claim them within the delay
+                  period.
+                </p>
               </div>
               <div>
-                <h3 className="font-semibold text-[var(--foreground)] mb-1">Inheritance Delay</h3>
-                <p>Number of blocks to wait before inheritance can be claimed. Gives you time to cancel unwanted recovery attempts.</p>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">
+                  Inheritance Delay
+                </h3>
+                <p>
+                  Number of blocks to wait before inheritance can be claimed.
+                  Gives you time to cancel unwanted recovery attempts.
+                </p>
               </div>
               <div>
-                <h3 className="font-semibold text-[var(--foreground)] mb-1">Cancel Delay</h3>
-                <p>Number of blocks after which a pending recovery can be cancelled by a higher-priority group.</p>
+                <h3 className="font-semibold text-[var(--foreground)] mb-1">
+                  Cancel Delay
+                </h3>
+                <p>
+                  Number of blocks after which a pending recovery can be
+                  cancelled by a higher-priority group.
+                </p>
               </div>
             </div>
             <button
