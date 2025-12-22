@@ -170,6 +170,11 @@ body {
   outline: none;
 }
 
+/* Remove focus outline for inputs that use border-only focus styling */
+.focus-border-only:focus-visible {
+  outline: none;
+}
+
 /* Smooth transitions for theme switching */
 *,
 *::before,

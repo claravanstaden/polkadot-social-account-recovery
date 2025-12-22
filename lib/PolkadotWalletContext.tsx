@@ -27,7 +27,7 @@ const PolkadotWalletContext = createContext<
   PolkadotWalletContextType | undefined
 >(undefined);
 
-const WALLET_NAME_KEY = "polkadot-recovery-wallet-name";
+const WALLET_TITLE_KEY = "polkadot-recovery-wallet-title";
 const ACCOUNT_ADDRESS_KEY = "polkadot-recovery-account-address";
 
 export function PolkadotWalletProvider({ children }: { children: ReactNode }) {
@@ -40,20 +40,23 @@ export function PolkadotWalletProvider({ children }: { children: ReactNode }) {
 
   // Load saved wallet on mount
   useEffect(() => {
-    const savedWalletName = localStorage.getItem(WALLET_NAME_KEY);
+    const savedWalletTitle = localStorage.getItem(WALLET_TITLE_KEY);
     const savedAccountAddress = localStorage.getItem(ACCOUNT_ADDRESS_KEY);
 
     if (savedAccountAddress) {
       setSelectedAccountAddress(savedAccountAddress);
     }
 
-    if (savedWalletName) {
+    if (savedWalletTitle) {
       // Auto-reconnect to saved wallet
       const reconnect = async () => {
         try {
-          const { getWalletBySource } =
-            await import("@talismn/connect-wallets");
-          const savedWallet = getWalletBySource(savedWalletName);
+          const { getWallets } = await import("@talismn/connect-wallets");
+          const wallets = getWallets();
+          // Find the exact wallet by title to avoid mismatches between similar wallets
+          const savedWallet = wallets.find(
+            (w) => w.title === savedWalletTitle && w.installed,
+          );
           if (savedWallet) {
             await savedWallet.enable("Polkadot Social Account Recovery");
             setWalletState(savedWallet);
@@ -63,7 +66,7 @@ export function PolkadotWalletProvider({ children }: { children: ReactNode }) {
           }
         } catch (err) {
           console.warn("Failed to auto-reconnect wallet:", err);
-          localStorage.removeItem(WALLET_NAME_KEY);
+          localStorage.removeItem(WALLET_TITLE_KEY);
         }
       };
       reconnect();
@@ -73,9 +76,9 @@ export function PolkadotWalletProvider({ children }: { children: ReactNode }) {
   const setWallet = useCallback((newWallet: Wallet | null) => {
     setWalletState(newWallet);
     if (newWallet) {
-      localStorage.setItem(WALLET_NAME_KEY, newWallet.extensionName);
+      localStorage.setItem(WALLET_TITLE_KEY, newWallet.title);
     } else {
-      localStorage.removeItem(WALLET_NAME_KEY);
+      localStorage.removeItem(WALLET_TITLE_KEY);
     }
   }, []);
 
@@ -98,7 +101,7 @@ export function PolkadotWalletProvider({ children }: { children: ReactNode }) {
     setWalletState(null);
     setAccounts([]);
     setSelectedAccountAddress(null);
-    localStorage.removeItem(WALLET_NAME_KEY);
+    localStorage.removeItem(WALLET_TITLE_KEY);
     localStorage.removeItem(ACCOUNT_ADDRESS_KEY);
   }, []);
 

@@ -514,7 +514,7 @@ export default function SocialRecoverySetup() {
             id="account-select"
             value={selectedAccount}
             onChange={(e) => selectAccount(e.target.value)}
-            className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-[var(--foreground)]"
+            className="focus-border-only w-full px-4 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-[var(--foreground)]"
           >
             <option value="">Select an account...</option>
             {accounts.map((acc) => (
@@ -763,7 +763,7 @@ export default function SocialRecoverySetup() {
                         updateFriend(groupIndex, friendIndex, e.target.value)
                       }
                       placeholder="Enter friend's account address..."
-                      className="flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent text-sm font-mono text-[var(--foreground)]"
+                      className="focus-border-only flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm font-mono text-[var(--foreground)]"
                     />
                     {group.friends.length > 1 && (
                       <button
@@ -808,7 +808,7 @@ export default function SocialRecoverySetup() {
                   updateFriendGroup(groupIndex, "inheritor", e.target.value)
                 }
                 placeholder="Enter inheritor's account address..."
-                className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent font-mono text-sm text-[var(--foreground)]"
+                className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors font-mono text-sm text-[var(--foreground)]"
               />
               <p className="text-xs text-[var(--foreground-muted)] mt-1">
                 Account that will inherit if recovery is not claimed
