@@ -97,7 +97,7 @@ export default function NetworkSelector() {
           id="network-select"
           value={selectedNetwork.id}
           onChange={(e) => setNetwork(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--polkadot-accent)] focus:border-transparent bg-[var(--surface)] text-[var(--foreground)]"
+          className="focus-border-only pl-3 pr-8 py-1.5 text-sm border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors bg-[var(--surface)] text-[var(--foreground)]"
         >
           {SUPPORTED_NETWORKS.map((network) => (
             <option key={network.id} value={network.id}>
@@ -109,7 +109,7 @@ export default function NetworkSelector() {
 
         <button
           onClick={handleOpenModal}
-          className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--grey-200)] rounded-lg transition-colors"
+          className="p-1.5 text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--border-color)] rounded-lg transition-colors"
           title="Edit WSS URL"
         >
           <svg
@@ -182,13 +182,13 @@ export default function NetworkSelector() {
                 <button
                   onClick={handleTestConnection}
                   disabled={isTesting}
-                  className="flex-1 px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--grey-200)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--border-color)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isTesting ? "Testing..." : "Test Connection"}
                 </button>
                 <button
                   onClick={handleReset}
-                  className="px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--grey-200)] transition-colors"
+                  className="px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--border-color)] transition-colors"
                 >
                   Reset to Default
                 </button>
@@ -197,7 +197,7 @@ export default function NetworkSelector() {
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
                 <button
                   onClick={handleCloseModal}
-                  className="flex-1 px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--grey-200)] transition-colors"
+                  className="flex-1 px-4 py-2 bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--border-color)] transition-colors"
                 >
                   Cancel
                 </button>
