@@ -566,31 +566,7 @@ export default function SocialRecoverySetup() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)]">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-2xl font-medium mb-2 text-[var(--foreground)]">
-            Setup Social Recovery
-          </h2>
-        </div>
-        <div className="flex-shrink-0 ml-4">
-          {isConnected ? (
-            <div className="flex items-center gap-2 text-[var(--success)] text-sm">
-              <div className="w-2 h-2 bg-[var(--success)] rounded-full"></div>
-              Connected
-            </div>
-          ) : (
-            <button
-              onClick={connect}
-              disabled={isConnecting}
-              className="px-4 py-2 text-sm bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
-            >
-              {isConnecting ? "Connecting..." : "Connect to Network"}
-            </button>
-          )}
-        </div>
-      </div>
-
+    <div className="w-full max-w-4xl mx-auto p-8 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)] shadow-[0_0_30px_rgba(0,0,0,0.1)] dark:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
       {apiError && (
         <div className="mb-4 p-4 bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning)] rounded-lg text-sm">
           Network connection issue: {apiError}
@@ -599,12 +575,28 @@ export default function SocialRecoverySetup() {
 
       {/* Account Selection */}
       <div className="mb-6">
-        <label
-          htmlFor="account-select"
-          className="block text-sm font-medium text-[var(--foreground)] mb-2"
-        >
-          Account
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label
+            htmlFor="account-select"
+            className="text-sm font-medium text-[var(--foreground)]"
+          >
+            Account
+          </label>
+          {isConnected ? (
+            <div className="flex items-center gap-1.5 text-[var(--success)] text-xs">
+              <div className="w-1.5 h-1.5 bg-[var(--success)] rounded-full"></div>
+              Connected
+            </div>
+          ) : (
+            <button
+              onClick={connect}
+              disabled={isConnecting}
+              className="text-xs text-[var(--polkadot-accent)] hover:text-[var(--polkadot-accent-hover)] disabled:text-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
+            >
+              {isConnecting ? "Connecting..." : "Connect to Network"}
+            </button>
+          )}
+        </div>
         {accounts.length === 0 ? (
           <div className="text-center py-4 text-[var(--foreground-muted)]">
             <p>No accounts found.</p>
@@ -620,7 +612,7 @@ export default function SocialRecoverySetup() {
             id="account-select"
             value={selectedAccount}
             onChange={(e) => selectAccount(e.target.value)}
-            className="focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-[var(--foreground)]"
+            className="shadow-[0_2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-[var(--foreground)]"
           >
             <option value="">Select an account...</option>
             {accounts.map((acc) => (
@@ -635,10 +627,7 @@ export default function SocialRecoverySetup() {
 
       {/* Existing Friend Groups from Chain */}
       {isConnected && selectedAccount && !isFormVisible && (
-        <div className="mb-6 border-t border-[var(--border-color)] pt-6">
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
-            Recovery
-          </h3>
+        <div>
           {isLoadingExisting ? (
             <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
               Loading existing friend groups...
@@ -811,7 +800,7 @@ export default function SocialRecoverySetup() {
                 ))}
             </div>
           ) : (
-            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg flex items-center justify-between">
+            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg flex items-center justify-between border-dashed">
               <span className="text-[var(--foreground-muted)] text-sm">
                 No recovery configured for this account yet.
               </span>
@@ -828,7 +817,7 @@ export default function SocialRecoverySetup() {
 
       {/* Friend Groups Form */}
       {isFormVisible && (
-        <div className="border-t border-[var(--border-color)] pt-6 space-y-6">
+        <div className="pt-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-[var(--foreground)]">
