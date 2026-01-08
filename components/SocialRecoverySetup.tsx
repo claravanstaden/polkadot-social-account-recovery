@@ -6,6 +6,7 @@ import { useNetwork } from "@/lib/NetworkContext";
 import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import NumberInput from "./NumberInput";
+import Tooltip from "./Tooltip";
 
 type TxStatus =
   | "idle"
@@ -995,7 +996,7 @@ export default function SocialRecoverySetup() {
               </div>
 
               {/* Friends Needed (Threshold) */}
-              <div className="max-w-[190px]">
+              <div className="max-w-[220px]">
                 <NumberInput
                   label="Friends Needed (Threshold)"
                   value={group.friends_needed}
@@ -1004,13 +1005,15 @@ export default function SocialRecoverySetup() {
                   }
                   min={1}
                   max={group.friends.filter((f) => f.trim()).length || 1}
+                  tooltip="The minimum number of friends required to approve a recovery or inheritance. For example, '2 of 3' means any 2 friends can initiate."
                 />
               </div>
 
               {/* Inheritor */}
               <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
                   Inheritor Account
+                  <Tooltip content="The account that will receive your assets if friends initiate inheritance and you don't cancel within the delay period." />
                 </label>
                 <input
                   type="text"
@@ -1033,6 +1036,7 @@ export default function SocialRecoverySetup() {
                   }
                   min={1}
                   suffix="blocks"
+                  tooltip="Number of blocks to wait before inheritance can be claimed. This gives you time to cancel unwanted recovery attempts."
                 />
 
                 <NumberInput
@@ -1043,11 +1047,13 @@ export default function SocialRecoverySetup() {
                   }
                   min={1}
                   suffix="blocks"
+                  tooltip="Number of blocks after which a pending recovery can be cancelled by a higher-priority group."
                 />
 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
                     Deposit Amount
+                    <Tooltip content="Required deposit locked when creating this recovery configuration. Will be returned when the configuration is removed." />
                   </label>
                   <div className="focus-parent flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
                     <input

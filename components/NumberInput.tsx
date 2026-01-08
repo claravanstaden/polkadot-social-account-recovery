@@ -1,5 +1,7 @@
 "use client";
 
+import Tooltip from "./Tooltip";
+
 interface NumberInputProps {
   value: number;
   onChange: (value: number) => void;
@@ -9,6 +11,7 @@ interface NumberInputProps {
   suffix?: string;
   label: string;
   hint?: string;
+  tooltip?: string;
 }
 
 export default function NumberInput({
@@ -20,6 +23,7 @@ export default function NumberInput({
   suffix,
   label,
   hint,
+  tooltip,
 }: NumberInputProps) {
   const handleIncrement = () => {
     const newValue = value + step;
@@ -47,8 +51,9 @@ export default function NumberInput({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+      <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
         {label}
+        {tooltip && <Tooltip content={tooltip} />}
       </label>
       <div className="focus-parent flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
         <button
