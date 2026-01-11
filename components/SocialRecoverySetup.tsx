@@ -8,6 +8,7 @@ import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import NumberInput from "./NumberInput";
 import Tooltip from "./Tooltip";
 import AttemptCard from "./shared/AttemptCard";
+import { useToast } from "./Toast";
 
 type TxStatus =
   | "idle"
@@ -62,11 +63,10 @@ export default function SocialRecoverySetup() {
     selectAccount,
     openModal,
   } = usePolkadotWallet();
+  const { showToast } = useToast();
 
-  const [error, setError] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
 
@@ -366,8 +366,6 @@ export default function SocialRecoverySetup() {
   const handleCancelAttempt = useCallback(async (attemptIndex: number) => {
     if (!api || !isConnected || !wallet || !selectedAccount) return;
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -379,7 +377,7 @@ export default function SocialRecoverySetup() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.cancelAttempt) {
-        setError("cancelAttempt method not found in recovery pallet");
+        showToast("cancelAttempt method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -409,10 +407,10 @@ export default function SocialRecoverySetup() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Recovery attempt cancelled successfully!");
+              showToast("Recovery attempt cancelled successfully!", "success");
               fetchAttemptsOnAccount();
             }
 
@@ -422,7 +420,7 @@ export default function SocialRecoverySetup() {
       );
     } catch (err) {
       console.error("Cancel attempt error:", err);
-      setError(err instanceof Error ? err.message : "Failed to cancel attempt");
+      showToast(err instanceof Error ? err.message : "Failed to cancel attempt", "error");
       setTxStatus("error");
     }
   }, [api, isConnected, wallet, selectedAccount, fetchAttemptsOnAccount]);
@@ -437,8 +435,6 @@ export default function SocialRecoverySetup() {
 
     if (!api || !isConnected || !wallet || !selectedAccount) return;
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -450,7 +446,7 @@ export default function SocialRecoverySetup() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.slashAttempt) {
-        setError("slashAttempt method not found in recovery pallet");
+        showToast("slashAttempt method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -480,10 +476,10 @@ export default function SocialRecoverySetup() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Recovery attempt slashed! The initiator's deposit has been burned.");
+              showToast("Recovery attempt slashed! The initiator's deposit has been burned.", "success");
               fetchAttemptsOnAccount();
             }
 
@@ -493,7 +489,7 @@ export default function SocialRecoverySetup() {
       );
     } catch (err) {
       console.error("Slash attempt error:", err);
-      setError(err instanceof Error ? err.message : "Failed to slash attempt");
+      showToast(err instanceof Error ? err.message : "Failed to slash attempt", "error");
       setTxStatus("error");
     }
   }, [api, isConnected, wallet, selectedAccount, fetchAttemptsOnAccount]);
@@ -568,25 +564,21 @@ export default function SocialRecoverySetup() {
   };
 
   const handleSetupRecovery = useCallback(async () => {
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
 
     if (!selectedAccount) {
-      setError("Please select an account to configure recovery for");
+      showToast("Please select an account to configure recovery for", "error");
       return;
     }
 
     if (!api || !isConnected) {
-      setError(
-        'Not connected to network. Please wait for connection or click "Connect to Network".',
-      );
+      showToast('Not connected to network. Please wait for connection or click "Connect to Network".', "error");
       return;
     }
 
     // Verify wallet is connected
     if (!wallet || !walletSelectedAccount) {
-      setError("Please connect your wallet and select an account");
+      showToast("Please connect your wallet and select an account", "error");
       return;
     }
 
@@ -596,9 +588,7 @@ export default function SocialRecoverySetup() {
       const validFriends = group.friends.filter((f) => f.trim() !== "");
 
       if (validFriends.length === 0) {
-        setError(
-          `Friend group ${i + 1}: Please add at least one friend account`,
-        );
+        showToast(`Friend group ${i + 1}: Please add at least one friend account`, "error");
         return;
       }
 
@@ -606,33 +596,27 @@ export default function SocialRecoverySetup() {
         group.friends_needed < 1 ||
         group.friends_needed > validFriends.length
       ) {
-        setError(
-          `Friend group ${i + 1}: Friends needed must be between 1 and ${validFriends.length}`,
-        );
+        showToast(`Friend group ${i + 1}: Friends needed must be between 1 and ${validFriends.length}`, "error");
         return;
       }
 
       if (!group.inheritor.trim()) {
-        setError(`Friend group ${i + 1}: Please specify an inheritor account`);
+        showToast(`Friend group ${i + 1}: Please specify an inheritor account`, "error");
         return;
       }
 
       if (group.inheritance_delay < 1) {
-        setError(
-          `Friend group ${i + 1}: Inheritance delay must be at least 1 block`,
-        );
+        showToast(`Friend group ${i + 1}: Inheritance delay must be at least 1 block`, "error");
         return;
       }
 
       if (group.cancel_delay < 1) {
-        setError(
-          `Friend group ${i + 1}: Cancel delay must be at least 1 block`,
-        );
+        showToast(`Friend group ${i + 1}: Cancel delay must be at least 1 block`, "error");
         return;
       }
 
       if (group.deposit < 0) {
-        setError(`Friend group ${i + 1}: Deposit must be a positive number`);
+        showToast(`Friend group ${i + 1}: Deposit must be a positive number`, "error");
         return;
       }
     }
@@ -668,16 +652,16 @@ export default function SocialRecoverySetup() {
 
       if (!recoveryPallet) {
         const chainName = await api.rpc.system.chain();
-        setError(
-          `Recovery pallet not found on chain "${chainName}". ` +
-            `Please verify you're connected to a chain with the recovery pallet.`,
+        showToast(
+          `Recovery pallet not found on chain "${chainName}". Please verify you're connected to a chain with the recovery pallet.`,
+          "error"
         );
         setTxStatus("error");
         return;
       }
 
       if (!recoveryPallet.setFriendGroups) {
-        setError("setFriendGroups method not found in recovery pallet.");
+        showToast("setFriendGroups method not found in recovery pallet.", "error");
         setTxStatus("error");
         return;
       }
@@ -715,12 +699,10 @@ export default function SocialRecoverySetup() {
                 errorMessage = dispatchError.toString();
               }
 
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage(
-                `Social recovery configured successfully! Transaction hash: ${hash.toHex()}`,
-              );
+              showToast("Social recovery configured successfully!", "success");
               // Refresh existing friend groups and close form
               fetchExistingFriendGroups();
               setIsFormVisible(false);
@@ -732,8 +714,9 @@ export default function SocialRecoverySetup() {
       );
     } catch (err) {
       console.error("Transaction error:", err);
-      setError(
+      showToast(
         err instanceof Error ? err.message : "Failed to submit transaction",
+        "error"
       );
       setTxStatus("error");
     }
@@ -744,9 +727,9 @@ export default function SocialRecoverySetup() {
     wallet,
     walletSelectedAccount,
     friendGroups,
-    selectedNetwork.name,
-    getActiveWssUrl,
+    selectedNetwork.tokenDecimals,
     fetchExistingFriendGroups,
+    showToast,
   ]);
 
   const handleDeleteFriendGroups = useCallback(async () => {
@@ -758,22 +741,20 @@ export default function SocialRecoverySetup() {
       return;
     }
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
 
     if (!selectedAccount) {
-      setError("Please select an account");
+      showToast("Please select an account", "error");
       return;
     }
 
     if (!api || !isConnected) {
-      setError("Not connected to network");
+      showToast("Not connected to network", "error");
       return;
     }
 
     if (!wallet || !walletSelectedAccount) {
-      setError("Please connect your wallet and select an account");
+      showToast("Please connect your wallet and select an account", "error");
       return;
     }
 
@@ -788,7 +769,7 @@ export default function SocialRecoverySetup() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet || !recoveryPallet.setFriendGroups) {
-        setError("Recovery pallet not found");
+        showToast("Recovery pallet not found", "error");
         setTxStatus("error");
         return;
       }
@@ -822,10 +803,10 @@ export default function SocialRecoverySetup() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Friend groups deleted successfully!");
+              showToast("Friend groups deleted successfully!", "success");
               fetchExistingFriendGroups();
             }
 
@@ -835,8 +816,9 @@ export default function SocialRecoverySetup() {
       );
     } catch (err) {
       console.error("Transaction error:", err);
-      setError(
+      showToast(
         err instanceof Error ? err.message : "Failed to submit transaction",
+        "error"
       );
       setTxStatus("error");
     }
@@ -847,6 +829,7 @@ export default function SocialRecoverySetup() {
     wallet,
     walletSelectedAccount,
     fetchExistingFriendGroups,
+    showToast,
   ]);
 
   if (!wallet) {
@@ -1479,20 +1462,6 @@ export default function SocialRecoverySetup() {
               Transaction hash: {txHash}
             </p>
           )}
-        </div>
-      )}
-
-      {/* Success Message */}
-      {successMessage && (
-        <div className="mt-6 alert alert-success text-sm">
-          {successMessage}
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="mt-6 alert alert-error text-sm">
-          {error}
         </div>
       )}
 

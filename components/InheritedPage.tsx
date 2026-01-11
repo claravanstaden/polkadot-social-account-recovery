@@ -6,6 +6,7 @@ import { useNetwork } from "@/lib/NetworkContext";
 import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import Tooltip from "./Tooltip";
+import { useToast } from "./Toast";
 
 type TxStatus =
   | "idle"
@@ -58,11 +59,10 @@ export default function InheritedPage() {
     selectAccount,
     openModal,
   } = usePolkadotWallet();
+  const { showToast } = useToast();
 
-  const [error, setError] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Inherited accounts
   const [inheritedAccounts, setInheritedAccounts] = useState<InheritedAccount[]>([]);
@@ -226,18 +226,16 @@ export default function InheritedPage() {
   const handleTransfer = useCallback(async () => {
     if (!api || !isConnected || !wallet || !selectedAccount) return;
     if (!selectedInherited || !transferRecipient || !transferAmount) {
-      setError("Please fill in all transfer fields");
+      showToast("Please fill in all transfer fields", "error");
       return;
     }
 
     const amount = parseFloat(transferAmount);
     if (isNaN(amount) || amount <= 0) {
-      setError("Please enter a valid transfer amount");
+      showToast("Please enter a valid transfer amount", "error");
       return;
     }
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -249,7 +247,7 @@ export default function InheritedPage() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.controlInheritedAccount) {
-        setError("controlInheritedAccount method not found in recovery pallet");
+        showToast("controlInheritedAccount method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -287,10 +285,10 @@ export default function InheritedPage() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage(`Successfully transferred ${transferAmount} ${selectedNetwork.tokenSymbol}!`);
+              showToast(`Successfully transferred ${transferAmount} ${selectedNetwork.tokenSymbol}!`, "success");
               setTransferAmount("");
               setTransferRecipient("");
               fetchInheritedAccounts();
@@ -302,10 +300,10 @@ export default function InheritedPage() {
       );
     } catch (err) {
       console.error("Transfer error:", err);
-      setError(err instanceof Error ? err.message : "Failed to transfer");
+      showToast(err instanceof Error ? err.message : "Failed to transfer", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, transferAmount, selectedNetwork, fetchInheritedAccounts]);
+  }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, transferAmount, selectedNetwork, fetchInheritedAccounts, showToast]);
 
   // Handle clearing friend groups to prevent future contests
   const handleClearFriendGroups = useCallback(async (inheritedAddress: string) => {
@@ -314,12 +312,10 @@ export default function InheritedPage() {
     // Check if there are ongoing attempts
     const account = inheritedAccounts.find(a => a.address === inheritedAddress);
     if (account?.hasOngoingAttempts) {
-      setError("Cannot clear friend groups while there are ongoing recovery attempts. Cancel or wait for them to complete first.");
+      showToast("Cannot clear friend groups while there are ongoing recovery attempts. Cancel or wait for them to complete first.", "error");
       return;
     }
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -330,7 +326,7 @@ export default function InheritedPage() {
       const recoveryPallet = apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.controlInheritedAccount || !recoveryPallet?.setFriendGroups) {
-        setError("Required methods not found in recovery pallet");
+        showToast("Required methods not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -364,10 +360,10 @@ export default function InheritedPage() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Friend groups cleared successfully! This account can no longer be contested.");
+              showToast("Friend groups cleared successfully! This account can no longer be contested.", "success");
               fetchInheritedAccounts();
             }
 
@@ -377,10 +373,10 @@ export default function InheritedPage() {
       );
     } catch (err) {
       console.error("Clear friend groups error:", err);
-      setError(err instanceof Error ? err.message : "Failed to clear friend groups");
+      showToast(err instanceof Error ? err.message : "Failed to clear friend groups", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, inheritedAccounts, fetchInheritedAccounts]);
+  }, [api, isConnected, wallet, selectedAccount, inheritedAccounts, fetchInheritedAccounts, showToast]);
 
   if (!wallet) {
     return (
@@ -654,7 +650,9 @@ export default function InheritedPage() {
                   {/* No friend groups badge */}
                   {account.friendGroups.length === 0 && (
                     <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success-bg)] text-[var(--success)]">
-                      Secure - No friend groups
+                      No friend groups set
+
+
                     </span>
                   )}
                 </div>
@@ -793,19 +791,6 @@ export default function InheritedPage() {
         </div>
       )}
 
-      {/* Success Message */}
-      {successMessage && (
-        <div className="mt-6 alert alert-success text-sm">
-          {successMessage}
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="mt-6 alert alert-error text-sm">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

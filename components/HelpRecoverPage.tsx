@@ -7,6 +7,7 @@ import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import AttemptCard from "./shared/AttemptCard";
 import Tooltip from "./Tooltip";
+import { useToast } from "./Toast";
 
 type TxStatus =
   | "idle"
@@ -68,11 +69,10 @@ export default function HelpRecoverPage() {
     selectAccount,
     openModal,
   } = usePolkadotWallet();
+  const { showToast } = useToast();
 
-  const [error, setError] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Lost account to help recover
   const [lostAccount, setLostAccount] = useState<string>("");
@@ -98,7 +98,6 @@ export default function HelpRecoverPage() {
     }
 
     setIsLoading(true);
-    setError(null);
 
     try {
       // Get current block number
@@ -113,7 +112,7 @@ export default function HelpRecoverPage() {
         apiQuery.social_recovery;
 
       if (!recoveryQuery) {
-        setError("Recovery pallet not found on this network");
+        showToast("Recovery pallet not found on this network", "error");
         setIsLoading(false);
         return;
       }
@@ -280,11 +279,11 @@ export default function HelpRecoverPage() {
       }
     } catch (err) {
       console.error("Error fetching lost account data:", err);
-      setError("Failed to fetch account data. Please check the address.");
+      showToast("Failed to fetch account data. Please check the address.", "error");
     } finally {
       setIsLoading(false);
     }
-  }, [api, isConnected, lostAccount]);
+  }, [api, isConnected, lostAccount, showToast]);
 
   // Fetch data when lost account changes
   useEffect(() => {
@@ -330,8 +329,6 @@ export default function HelpRecoverPage() {
   const handleInitiateAttempt = useCallback(async (friendGroupIndex: number) => {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -343,7 +340,7 @@ export default function HelpRecoverPage() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.initiateAttempt) {
-        setError("initiateAttempt method not found in recovery pallet");
+        showToast("initiateAttempt method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -373,10 +370,10 @@ export default function HelpRecoverPage() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Recovery attempt initiated successfully!");
+              showToast("Recovery attempt initiated successfully!", "success");
               fetchLostAccountData();
             }
 
@@ -386,17 +383,15 @@ export default function HelpRecoverPage() {
       );
     } catch (err) {
       console.error("Initiate attempt error:", err);
-      setError(err instanceof Error ? err.message : "Failed to initiate attempt");
+      showToast(err instanceof Error ? err.message : "Failed to initiate attempt", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData]);
+  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
   // Handle approve attempt
   const handleApproveAttempt = useCallback(async (friendGroupIndex: number) => {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -408,7 +403,7 @@ export default function HelpRecoverPage() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.approveAttempt) {
-        setError("approveAttempt method not found in recovery pallet");
+        showToast("approveAttempt method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -438,10 +433,10 @@ export default function HelpRecoverPage() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Approval submitted successfully!");
+              showToast("Approval submitted successfully!", "success");
               fetchLostAccountData();
             }
 
@@ -451,17 +446,15 @@ export default function HelpRecoverPage() {
       );
     } catch (err) {
       console.error("Approve attempt error:", err);
-      setError(err instanceof Error ? err.message : "Failed to approve attempt");
+      showToast(err instanceof Error ? err.message : "Failed to approve attempt", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData]);
+  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
   // Handle finish attempt
   const handleFinishAttempt = useCallback(async (attemptIndex: number) => {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -473,7 +466,7 @@ export default function HelpRecoverPage() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.finishAttempt) {
-        setError("finishAttempt method not found in recovery pallet");
+        showToast("finishAttempt method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -503,10 +496,10 @@ export default function HelpRecoverPage() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Recovery completed! The inheritor now has access to the account.");
+              showToast("Recovery completed! The inheritor now has access to the account.", "success");
               fetchLostAccountData();
             }
 
@@ -516,17 +509,15 @@ export default function HelpRecoverPage() {
       );
     } catch (err) {
       console.error("Finish attempt error:", err);
-      setError(err instanceof Error ? err.message : "Failed to finish attempt");
+      showToast(err instanceof Error ? err.message : "Failed to finish attempt", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData]);
+  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
   // Handle cancel attempt (as initiator)
   const handleCancelAttempt = useCallback(async (attemptIndex: number) => {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
-    setError(null);
-    setSuccessMessage(null);
     setTxHash(null);
     setTxStatus("signing");
 
@@ -538,7 +529,7 @@ export default function HelpRecoverPage() {
         apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
       if (!recoveryPallet?.cancelAttempt) {
-        setError("cancelAttempt method not found in recovery pallet");
+        showToast("cancelAttempt method not found in recovery pallet", "error");
         setTxStatus("error");
         return;
       }
@@ -568,10 +559,10 @@ export default function HelpRecoverPage() {
               } else {
                 errorMessage = dispatchError.toString();
               }
-              setError(errorMessage);
+              showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              setSuccessMessage("Recovery attempt cancelled successfully!");
+              showToast("Recovery attempt cancelled successfully!", "success");
               fetchLostAccountData();
             }
 
@@ -581,10 +572,10 @@ export default function HelpRecoverPage() {
       );
     } catch (err) {
       console.error("Cancel attempt error:", err);
-      setError(err instanceof Error ? err.message : "Failed to cancel attempt");
+      showToast(err instanceof Error ? err.message : "Failed to cancel attempt", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData]);
+  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
   if (!wallet) {
     return (
@@ -964,19 +955,6 @@ export default function HelpRecoverPage() {
         </div>
       )}
 
-      {/* Success Message */}
-      {successMessage && (
-        <div className="mt-6 alert alert-success text-sm">
-          {successMessage}
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="mt-6 alert alert-error text-sm">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

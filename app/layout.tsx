@@ -5,6 +5,7 @@ import "./globals.css";
 import { NetworkProvider } from "@/lib/NetworkContext";
 import { PolkadotWalletProvider } from "@/lib/PolkadotWalletContext";
 import { ThemeProvider } from "@/lib/ThemeContext";
+import { ToastProvider } from "@/components/Toast";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -37,7 +38,9 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <NetworkProvider>
-            <PolkadotWalletProvider>{children}</PolkadotWalletProvider>
+            <PolkadotWalletProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </PolkadotWalletProvider>
           </NetworkProvider>
         </ThemeProvider>
       </body>
