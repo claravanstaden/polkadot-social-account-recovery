@@ -15,16 +15,19 @@ export interface UsePolkadotApiReturn {
 }
 
 export function usePolkadotApi(): UsePolkadotApiReturn {
-  const { getActiveWssUrl } = useNetwork();
+  const { selectedNetwork, customUrls } = useNetwork();
   const [api, setApi] = useState<ApiPromise | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentWssUrl = useRef<string>("");
   const apiRef = useRef<ApiPromise | null>(null);
+  // Track connection attempt count to force effect re-runs
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
 
-  // Get the current active URL
-  const activeWssUrl = getActiveWssUrl();
+  // Compute the active URL directly from context state to ensure reactivity
+  const activeWssUrl =
+    customUrls[selectedNetwork.id] || selectedNetwork.assetHubWss;
 
   const disconnect = useCallback(async () => {
     if (apiRef.current) {
@@ -85,6 +88,8 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
       currentWssUrl.current = "";
     } finally {
       setIsConnecting(false);
+      // Increment attempt counter to force effect to re-check if URL is correct
+      setConnectionAttempt((prev) => prev + 1);
     }
   }, []);
 
@@ -92,10 +97,10 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
     await connectToUrl(activeWssUrl);
   }, [activeWssUrl, connectToUrl]);
 
-  // Auto-connect when URL changes
+  // Auto-connect when URL changes or after a connection attempt completes
   useEffect(() => {
     // If URL changed from what we're connected to, reconnect
-    if (currentWssUrl.current !== activeWssUrl) {
+    if (currentWssUrl.current !== activeWssUrl && !isConnecting) {
       console.log(
         "URL changed from",
         currentWssUrl.current,
@@ -104,7 +109,7 @@ export function usePolkadotApi(): UsePolkadotApiReturn {
       );
       connectToUrl(activeWssUrl);
     }
-  }, [activeWssUrl, connectToUrl]);
+  }, [activeWssUrl, connectToUrl, connectionAttempt, isConnecting]);
 
   // Cleanup on unmount
   useEffect(() => {

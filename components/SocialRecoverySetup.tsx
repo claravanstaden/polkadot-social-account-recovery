@@ -7,6 +7,7 @@ import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import NumberInput from "./NumberInput";
 import Tooltip from "./Tooltip";
+import AttemptCard from "./shared/AttemptCard";
 
 type TxStatus =
   | "idle"
@@ -24,6 +25,19 @@ interface FriendGroup {
   inheritance_order: number;
   cancel_delay: number;
   deposit: number;
+}
+
+interface Attempt {
+  friend_group_index: number;
+  initiator: string;
+  init_block: number;
+  last_approval_block: number;
+  approvals: number;
+}
+
+interface AttemptWithGroup {
+  friendGroup: FriendGroup;
+  attempt: Attempt;
 }
 
 // Helper to generate Subscan account URL
@@ -61,6 +75,11 @@ export default function SocialRecoverySetup() {
     FriendGroup[] | null
   >(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+
+  // Attempts on this account
+  const [attemptsOnAccount, setAttemptsOnAccount] = useState<AttemptWithGroup[]>([]);
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
+  const [currentBlock, setCurrentBlock] = useState<number>(0);
 
   // Friend groups configuration
   const [friendGroups, setFriendGroups] = useState<FriendGroup[]>([
@@ -210,6 +229,274 @@ export default function SocialRecoverySetup() {
   useEffect(() => {
     fetchExistingFriendGroups();
   }, [fetchExistingFriendGroups]);
+
+  // Fetch attempts on this account and current block
+  const fetchAttemptsOnAccount = useCallback(async () => {
+    if (!api || !isConnected || !selectedAccount) {
+      setAttemptsOnAccount([]);
+      return;
+    }
+
+    setIsLoadingAttempts(true);
+
+    try {
+      // Get current block number
+      const header = await api.rpc.chain.getHeader();
+      setCurrentBlock(header.number.toNumber());
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiCall = api.call as any;
+      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
+
+      if (!recoveryApi || !recoveryApi.attempts) {
+        // Try storage query fallback
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const apiQuery = api.query as any;
+        const recoveryQuery =
+          apiQuery.recovery ||
+          apiQuery.socialRecovery ||
+          apiQuery.social_recovery;
+
+        if (recoveryQuery?.attempt) {
+          // Query all attempts for this account
+          const entries = await recoveryQuery.attempt.entries(selectedAccount);
+          const attempts: AttemptWithGroup[] = [];
+
+          for (const [_key, value] of entries) {
+            if (value && !value.isEmpty) {
+              const data = value.toJSON();
+              // Data structure: [AttemptOf, AttemptTicket, SecurityDeposit]
+              const attemptData = Array.isArray(data) ? data[0] : data;
+
+              if (attemptData) {
+                const friendGroupIndex = attemptData.friend_group_index ?? attemptData.friendGroupIndex ?? 0;
+
+                // Get the friend group for this attempt
+                const friendGroup = existingFriendGroups?.[friendGroupIndex];
+                if (friendGroup) {
+                  // Count approvals from bitfield
+                  let approvalCount = 0;
+                  const approvals = attemptData.approvals;
+                  if (Array.isArray(approvals)) {
+                    for (const word of approvals) {
+                      approvalCount += (word >>> 0).toString(2).split('1').length - 1;
+                    }
+                  } else if (typeof approvals === 'number') {
+                    approvalCount = (approvals >>> 0).toString(2).split('1').length - 1;
+                  }
+
+                  attempts.push({
+                    friendGroup,
+                    attempt: {
+                      friend_group_index: friendGroupIndex,
+                      initiator: attemptData.initiator || "",
+                      init_block: attemptData.init_block ?? attemptData.initBlock ?? 0,
+                      last_approval_block: attemptData.last_approval_block ?? attemptData.lastApprovalBlock ?? 0,
+                      approvals: approvalCount,
+                    },
+                  });
+                }
+              }
+            }
+          }
+
+          setAttemptsOnAccount(attempts);
+        } else {
+          setAttemptsOnAccount([]);
+        }
+        return;
+      }
+
+      // Use runtime API if available
+      const result = await recoveryApi.attempts(selectedAccount);
+      if (result && !result.isEmpty) {
+        const data = result.toJSON();
+        if (Array.isArray(data)) {
+          const attempts: AttemptWithGroup[] = data.map((item: any) => {
+            const [friendGroup, attempt] = item;
+            // Count approvals from bitfield
+            let approvalCount = 0;
+            const approvals = attempt.approvals;
+            if (Array.isArray(approvals)) {
+              for (const word of approvals) {
+                approvalCount += (word >>> 0).toString(2).split('1').length - 1;
+              }
+            }
+
+            return {
+              friendGroup: {
+                friends: friendGroup.friends || [],
+                friends_needed: friendGroup.friends_needed ?? friendGroup.friendsNeeded ?? 0,
+                inheritor: friendGroup.inheritor || "",
+                inheritance_delay: friendGroup.inheritance_delay ?? friendGroup.inheritanceDelay ?? 0,
+                inheritance_order: friendGroup.inheritance_order ?? friendGroup.inheritanceOrder ?? 0,
+                cancel_delay: friendGroup.cancel_delay ?? friendGroup.cancelDelay ?? 0,
+                deposit: friendGroup.deposit ?? 0,
+              },
+              attempt: {
+                friend_group_index: attempt.friend_group_index ?? attempt.friendGroupIndex ?? 0,
+                initiator: attempt.initiator || "",
+                init_block: attempt.init_block ?? attempt.initBlock ?? 0,
+                last_approval_block: attempt.last_approval_block ?? attempt.lastApprovalBlock ?? 0,
+                approvals: approvalCount,
+              },
+            };
+          });
+          setAttemptsOnAccount(attempts);
+        } else {
+          setAttemptsOnAccount([]);
+        }
+      } else {
+        setAttemptsOnAccount([]);
+      }
+    } catch (err) {
+      console.error("Error fetching attempts:", err);
+      setAttemptsOnAccount([]);
+    } finally {
+      setIsLoadingAttempts(false);
+    }
+  }, [api, isConnected, selectedAccount, existingFriendGroups]);
+
+  // Fetch attempts when account or connection changes
+  useEffect(() => {
+    fetchAttemptsOnAccount();
+  }, [fetchAttemptsOnAccount]);
+
+  // Handle cancel attempt
+  const handleCancelAttempt = useCallback(async (attemptIndex: number) => {
+    if (!api || !isConnected || !wallet || !selectedAccount) return;
+
+    setError(null);
+    setSuccessMessage(null);
+    setTxHash(null);
+    setTxStatus("signing");
+
+    try {
+      const signer = wallet.signer;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiTx = api.tx as any;
+      const recoveryPallet =
+        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+
+      if (!recoveryPallet?.cancelAttempt) {
+        setError("cancelAttempt method not found in recovery pallet");
+        setTxStatus("error");
+        return;
+      }
+
+      const tx = recoveryPallet.cancelAttempt(selectedAccount, attemptIndex);
+      setTxStatus("submitting");
+
+      const unsub = await tx.signAndSend(
+        selectedAccount,
+        { signer },
+        (result: ISubmittableResult) => {
+          const { status, txHash: hash, dispatchError } = result;
+          setTxHash(hash.toHex());
+
+          if (status.isInBlock) {
+            setTxStatus("in_block");
+          }
+
+          if (status.isFinalized) {
+            setTxStatus("finalized");
+
+            if (dispatchError) {
+              let errorMessage = "Transaction failed";
+              if (dispatchError.isModule) {
+                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+              } else {
+                errorMessage = dispatchError.toString();
+              }
+              setError(errorMessage);
+              setTxStatus("error");
+            } else {
+              setSuccessMessage("Recovery attempt cancelled successfully!");
+              fetchAttemptsOnAccount();
+            }
+
+            unsub();
+          }
+        },
+      );
+    } catch (err) {
+      console.error("Cancel attempt error:", err);
+      setError(err instanceof Error ? err.message : "Failed to cancel attempt");
+      setTxStatus("error");
+    }
+  }, [api, isConnected, wallet, selectedAccount, fetchAttemptsOnAccount]);
+
+  // Handle slash attempt
+  const handleSlashAttempt = useCallback(async (attemptIndex: number) => {
+    if (!window.confirm(
+      "Are you sure you want to slash this attempt? This will burn the initiator's deposit and cannot be undone."
+    )) {
+      return;
+    }
+
+    if (!api || !isConnected || !wallet || !selectedAccount) return;
+
+    setError(null);
+    setSuccessMessage(null);
+    setTxHash(null);
+    setTxStatus("signing");
+
+    try {
+      const signer = wallet.signer;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const apiTx = api.tx as any;
+      const recoveryPallet =
+        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+
+      if (!recoveryPallet?.slashAttempt) {
+        setError("slashAttempt method not found in recovery pallet");
+        setTxStatus("error");
+        return;
+      }
+
+      const tx = recoveryPallet.slashAttempt(attemptIndex);
+      setTxStatus("submitting");
+
+      const unsub = await tx.signAndSend(
+        selectedAccount,
+        { signer },
+        (result: ISubmittableResult) => {
+          const { status, txHash: hash, dispatchError } = result;
+          setTxHash(hash.toHex());
+
+          if (status.isInBlock) {
+            setTxStatus("in_block");
+          }
+
+          if (status.isFinalized) {
+            setTxStatus("finalized");
+
+            if (dispatchError) {
+              let errorMessage = "Transaction failed";
+              if (dispatchError.isModule) {
+                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+              } else {
+                errorMessage = dispatchError.toString();
+              }
+              setError(errorMessage);
+              setTxStatus("error");
+            } else {
+              setSuccessMessage("Recovery attempt slashed! The initiator's deposit has been burned.");
+              fetchAttemptsOnAccount();
+            }
+
+            unsub();
+          }
+        },
+      );
+    } catch (err) {
+      console.error("Slash attempt error:", err);
+      setError(err instanceof Error ? err.message : "Failed to slash attempt");
+      setTxStatus("error");
+    }
+  }, [api, isConnected, wallet, selectedAccount, fetchAttemptsOnAccount]);
 
   const addFriendGroup = () => {
     setFriendGroups([
@@ -811,6 +1098,47 @@ export default function SocialRecoverySetup() {
               >
                 Set Recovery
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recovery Attempts on My Account */}
+      {isConnected && selectedAccount && !isFormVisible && (
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">
+            Recovery Attempts on My Account
+          </h3>
+          {isLoadingAttempts ? (
+            <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
+              Loading recovery attempts...
+            </div>
+          ) : attemptsOnAccount.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--foreground-muted)]">
+                {attemptsOnAccount.length} active recovery attempt
+                {attemptsOnAccount.length !== 1 ? "s" : ""} on your account
+              </p>
+              {attemptsOnAccount.map((item, index) => (
+                <AttemptCard
+                  key={index}
+                  friendGroup={item.friendGroup}
+                  attempt={item.attempt}
+                  currentBlock={currentBlock}
+                  selectedAccount={selectedAccount}
+                  groupIndex={item.attempt.friend_group_index}
+                  isLostAccount={true}
+                  onCancel={() => handleCancelAttempt(item.attempt.friend_group_index)}
+                  onSlash={() => handleSlashAttempt(item.attempt.friend_group_index)}
+                  isLoading={txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg text-center border-dashed">
+              <span className="text-[var(--foreground-muted)] text-sm">
+                No active recovery attempts on your account.
+              </span>
             </div>
           )}
         </div>
