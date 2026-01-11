@@ -88,18 +88,18 @@ export default function AttemptCard({
   const isFriend = friendGroup.friends.includes(selectedAccount);
 
   return (
-    <div className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--background)]">
+    <div className="p-5 rounded-xl bg-[var(--surface)]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="font-medium text-[var(--foreground)]">
             Group {groupIndex + 1}
           </span>
           <span
-            className={`text-xs px-2 py-0.5 rounded ${
+            className={`text-xs px-2.5 py-1 rounded-full ${
               friendGroup.inheritance_order === 0
                 ? "bg-[var(--polkadot-accent)] text-white"
-                : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                : "bg-[var(--grey-200)] dark:bg-[var(--grey-700)] text-[var(--foreground-muted)]"
             }`}
           >
             {friendGroup.inheritance_order === 0
@@ -108,7 +108,7 @@ export default function AttemptCard({
           </span>
         </div>
         {isFullyApproved && (
-          <span className="text-xs px-2 py-0.5 rounded bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]">
+          <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success-bg)] text-[var(--success)]">
             Approved
           </span>
         )}
@@ -187,23 +187,23 @@ export default function AttemptCard({
       {/* Time-based Status */}
       <div className="flex flex-wrap gap-2 mb-4 text-xs">
         {!isFullyApproved && (
-          <span className="px-2 py-1 rounded bg-[var(--warning-bg)] text-[var(--warning)] border border-[var(--warning-border)]">
+          <span className="px-2.5 py-1 rounded-full bg-[var(--warning-bg)] text-[var(--warning)]">
             Needs {friendGroup.friends_needed - attempt.approvals} more
             approval(s)
           </span>
         )}
         {isFullyApproved && blocksUntilInheritable > 0 && (
-          <span className="px-2 py-1 rounded bg-[var(--info-bg)] text-[var(--info)] border border-[var(--info-border)]">
+          <span className="px-2.5 py-1 rounded-full bg-[var(--info-bg)] text-[var(--info)]">
             Inheritable in {blocksUntilInheritable} blocks
           </span>
         )}
         {isInheritable && (
-          <span className="px-2 py-1 rounded bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]">
+          <span className="px-2.5 py-1 rounded-full bg-[var(--success-bg)] text-[var(--success)]">
             Ready to finish
           </span>
         )}
         {!isLostAccount && !isCancelable && isInitiator && (
-          <span className="px-2 py-1 rounded bg-[var(--info-bg)] text-[var(--info)] border border-[var(--info-border)]">
+          <span className="px-2.5 py-1 rounded-full bg-[var(--info-bg)] text-[var(--info)]">
             Cancelable in {blocksUntilCancelable} blocks
           </span>
         )}
@@ -216,7 +216,7 @@ export default function AttemptCard({
           <button
             onClick={onApprove}
             disabled={isLoading}
-            className="flex-1 min-w-[100px] px-3 py-2 text-sm font-medium bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 min-w-[100px] px-4 py-2.5 text-sm font-medium bg-[var(--polkadot-accent)] text-white rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Approve
           </button>
@@ -227,7 +227,7 @@ export default function AttemptCard({
           <button
             onClick={onFinish}
             disabled={isLoading}
-            className="flex-1 min-w-[100px] px-3 py-2 text-sm font-medium bg-[var(--success)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 min-w-[100px] px-4 py-2.5 text-sm font-medium bg-[var(--success)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Finish Recovery
           </button>
@@ -238,7 +238,7 @@ export default function AttemptCard({
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 min-w-[100px] px-3 py-2 text-sm font-medium bg-[var(--warning-bg)] text-[var(--warning)] border border-[var(--warning-border)] rounded-lg hover:bg-[var(--warning)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 min-w-[100px] px-4 py-2.5 text-sm font-medium text-[var(--warning)] hover:bg-[var(--warning-bg)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Tooltip content="Cancel this recovery attempt and return the deposit to the initiator">
               <span className="flex items-center justify-center gap-1">
@@ -266,7 +266,7 @@ export default function AttemptCard({
           <button
             onClick={onSlash}
             disabled={isLoading}
-            className="flex-1 min-w-[100px] px-3 py-2 text-sm font-medium bg-[var(--error-bg)] text-[var(--error)] border border-[var(--error-border)] rounded-lg hover:bg-[var(--error)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 min-w-[100px] px-4 py-2.5 text-sm font-medium text-[var(--error)] hover:bg-[var(--error-bg)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Tooltip content="Slash this malicious attempt and burn the initiator's deposit">
               <span className="flex items-center justify-center gap-1">

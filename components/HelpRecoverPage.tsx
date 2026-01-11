@@ -588,7 +588,7 @@ export default function HelpRecoverPage() {
 
   if (!wallet) {
     return (
-      <div className="w-full max-w-4xl mx-auto p-8 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)] shadow-[0_0_30px_rgba(0,0,0,0.1)] dark:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+      <div className="w-full max-w-4xl mx-auto p-8 card">
         <div className="text-center py-8">
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2">
             Help Recover an Account
@@ -608,9 +608,9 @@ export default function HelpRecoverPage() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)] shadow-[0_0_30px_rgba(0,0,0,0.1)] dark:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+    <div className="w-full max-w-4xl mx-auto p-8 card">
       {apiError && (
-        <div className="mb-4 p-4 bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning)] rounded-lg text-sm">
+        <div className="mb-6 alert alert-warning text-sm">
           Network connection issue: {apiError}
         </div>
       )}
@@ -654,7 +654,7 @@ export default function HelpRecoverPage() {
             id="account-select"
             value={selectedAccount}
             onChange={(e) => selectAccount(e.target.value)}
-            className="shadow-[0_2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-[var(--foreground)]"
+            className="text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-[var(--foreground)]"
           >
             <option value="">Select an account...</option>
             {accounts.map((acc) => (
@@ -678,27 +678,27 @@ export default function HelpRecoverPage() {
           value={lostAccount}
           onChange={(e) => setLostAccount(e.target.value)}
           placeholder="Enter lost account address..."
-          className="focus-border-only w-full px-4 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm text-[var(--foreground)]"
+          className="focus-border-only w-full px-4 py-3 bg-[var(--background)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
         />
       </div>
 
       {/* Loading State */}
       {isLoading && (
-        <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
+        <div className="empty-state">
           Loading account data...
         </div>
       )}
 
       {/* Recovery Status Banner */}
       {!isLoading && lostAccount && recoveryStatus.isRecovered && (
-        <div className="mb-6 p-4 bg-[var(--success-bg)] border border-[var(--success-border)] rounded-xl">
+        <div className="mb-6 alert alert-success">
           <div className="flex items-start gap-3">
-            <svg className="w-6 h-6 text-[var(--success)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div className="flex-1">
-              <h4 className="font-semibold text-[var(--success)]">Account Already Recovered</h4>
-              <p className="text-sm text-[var(--success)] mt-1">
+              <h4 className="font-semibold">Account Already Recovered</h4>
+              <p className="text-sm opacity-90 mt-1">
                 This account has been recovered by a friend group with priority order {recoveryStatus.currentInheritanceOrder}.
               </p>
               <div className="mt-2 p-2 bg-[var(--background)] rounded-lg">
@@ -719,13 +719,13 @@ export default function HelpRecoverPage() {
                 )}
               </div>
               {recoveryStatus.currentInheritanceOrder !== 0 && (
-                <p className="text-xs text-[var(--success)] mt-2">
-                  Friend groups with priority order lower than {recoveryStatus.currentInheritanceOrder} can still contest and take over access.
+                <p className="text-xs opacity-90 mt-2">
+                  Friend groups with priority lower than {recoveryStatus.currentInheritanceOrder} can still contest.
                 </p>
               )}
               {recoveryStatus.currentInheritanceOrder === 0 && (
-                <p className="text-xs text-[var(--success)] mt-2">
-                  This was recovered by the highest priority group. No other groups can contest.
+                <p className="text-xs opacity-90 mt-2">
+                  Recovered by highest priority group. No other groups can contest.
                 </p>
               )}
             </div>
@@ -755,28 +755,24 @@ export default function HelpRecoverPage() {
             return (
               <div
                 key={groupIndex}
-                className={`border rounded-xl p-5 bg-[var(--background)] ${
-                  groupIsBlocked
-                    ? "border-[var(--border-color)] opacity-60"
-                    : groupCanContest && recoveryStatus.isRecovered
-                    ? "border-[var(--warning-border)]"
-                    : "border-[var(--border-color)]"
+                className={`rounded-xl p-5 bg-[var(--background)] ${
+                  groupIsBlocked ? "opacity-60" : ""
                 }`}
               >
                 {/* Blocked Banner */}
                 {groupIsBlocked && (
-                  <div className="mb-4 p-3 bg-[var(--error-bg)] border border-[var(--error-border)] rounded-lg">
-                    <p className="text-sm text-[var(--error)]">
-                      This group cannot recover the account. A group with equal or higher priority has already completed recovery.
+                  <div className="mb-4 alert alert-error">
+                    <p className="text-sm">
+                      This group cannot recover. A higher priority group has already completed recovery.
                     </p>
                   </div>
                 )}
 
                 {/* Can Contest Banner */}
                 {groupCanContest && recoveryStatus.isRecovered && !groupIsBlocked && (
-                  <div className="mb-4 p-3 bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-lg">
-                    <p className="text-sm text-[var(--warning)]">
-                      This group has higher priority and can contest the current recovery to take over access.
+                  <div className="mb-4 alert alert-warning">
+                    <p className="text-sm">
+                      This group has higher priority and can contest the current recovery.
                     </p>
                   </div>
                 )}
@@ -788,10 +784,10 @@ export default function HelpRecoverPage() {
                       Group {groupIndex + 1}
                     </span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded ${
+                      className={`text-xs px-2.5 py-1 rounded-full ${
                         group.inheritance_order === 0
                           ? "bg-[var(--polkadot-accent)] text-white"
-                          : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                          : "bg-[var(--grey-200)] dark:bg-[var(--grey-700)] text-[var(--foreground-muted)]"
                       }`}
                     >
                       {group.inheritance_order === 0
@@ -799,17 +795,17 @@ export default function HelpRecoverPage() {
                         : `Priority ${group.inheritance_order + 1}`}
                     </span>
                     {userIsFriend && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]">
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success-bg)] text-[var(--success)]">
                         You are a friend
                       </span>
                     )}
                     {groupIsBlocked && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-[var(--error-bg)] text-[var(--error)] border border-[var(--error-border)]">
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--error-bg)] text-[var(--error)]">
                         Blocked
                       </span>
                     )}
                     {groupCanContest && recoveryStatus.isRecovered && !groupIsBlocked && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-[var(--warning)] text-white">
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--warning)] text-white">
                         Can Contest
                       </span>
                     )}
@@ -926,16 +922,14 @@ export default function HelpRecoverPage() {
 
       {/* No Configuration Found */}
       {!isLoading && lostAccount && lostAccount.length === 48 && friendGroups.length === 0 && (
-        <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg text-center border-dashed">
-          <span className="text-[var(--foreground-muted)] text-sm">
-            No recovery configuration found for this account.
-          </span>
+        <div className="empty-state">
+          No recovery configuration found for this account.
         </div>
       )}
 
       {/* Transaction Status */}
       {txStatus !== "idle" && txStatus !== "error" && (
-        <div className="mt-4 p-4 bg-[var(--info-bg)] border border-[var(--info-border)] text-[var(--info)] rounded-lg">
+        <div className="mt-6 alert alert-info">
           <div className="flex items-center gap-2">
             {(txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block") && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
@@ -955,7 +949,7 @@ export default function HelpRecoverPage() {
                 />
               </svg>
             )}
-            <span>
+            <span className="text-sm">
               {txStatus === "signing" && "Please sign the transaction in your wallet..."}
               {txStatus === "submitting" && "Submitting transaction to the network..."}
               {txStatus === "in_block" && "Transaction included in block, waiting for finalization..."}
@@ -963,7 +957,7 @@ export default function HelpRecoverPage() {
             </span>
           </div>
           {txHash && (
-            <p className="mt-2 text-xs font-mono break-all">
+            <p className="mt-2 text-xs font-mono opacity-75 break-all">
               Transaction hash: {txHash}
             </p>
           )}
@@ -972,14 +966,14 @@ export default function HelpRecoverPage() {
 
       {/* Success Message */}
       {successMessage && (
-        <div className="mt-4 p-4 bg-[var(--success-bg)] border border-[var(--success-border)] text-[var(--success)] rounded-lg">
+        <div className="mt-6 alert alert-success text-sm">
           {successMessage}
         </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 p-4 bg-[var(--error-bg)] border border-[var(--error-border)] text-[var(--error)] rounded-lg">
+        <div className="mt-6 alert alert-error text-sm">
           {error}
         </div>
       )}

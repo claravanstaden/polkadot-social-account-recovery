@@ -854,9 +854,9 @@ export default function SocialRecoverySetup() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)] shadow-[0_0_30px_rgba(0,0,0,0.1)] dark:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+    <div className="w-full max-w-4xl mx-auto p-8 card">
       {apiError && (
-        <div className="mb-4 p-4 bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning)] rounded-lg text-sm">
+        <div className="mb-6 alert alert-warning text-sm">
           Network connection issue: {apiError}
         </div>
       )}
@@ -900,7 +900,7 @@ export default function SocialRecoverySetup() {
             id="account-select"
             value={selectedAccount}
             onChange={(e) => selectAccount(e.target.value)}
-            className="shadow-[0_2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-[var(--foreground)]"
+            className="text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-[var(--foreground)]"
           >
             <option value="">Select an account...</option>
             {accounts.map((acc) => (
@@ -917,7 +917,7 @@ export default function SocialRecoverySetup() {
       {isConnected && selectedAccount && !isFormVisible && (
         <div>
           {isLoadingExisting ? (
-            <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
+            <div className="empty-state">
               Loading existing friend groups...
             </div>
           ) : existingFriendGroups && existingFriendGroups.length > 0 ? (
@@ -988,17 +988,17 @@ export default function SocialRecoverySetup() {
                 .map((group, index) => (
                   <div
                     key={index}
-                    className="p-4 rounded-lg border border-[var(--border-color)] bg-[var(--background)]"
+                    className="p-5 rounded-xl bg-[var(--background)]"
                   >
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-4">
                       <span className="font-medium text-[var(--foreground)]">
                         Group {index + 1}
                       </span>
                       <span
-                        className={`text-xs px-2 py-0.5 rounded ${
+                        className={`text-xs px-2.5 py-1 rounded-full ${
                           group.inheritance_order === 0
                             ? "bg-[var(--polkadot-accent)] text-white"
-                            : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                            : "bg-[var(--grey-200)] dark:bg-[var(--grey-700)] text-[var(--foreground-muted)]"
                         }`}
                       >
                         {group.inheritance_order === 0
@@ -1007,35 +1007,35 @@ export default function SocialRecoverySetup() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-3">
+                    <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div>
-                        <span className="text-[var(--foreground-muted)]">
+                        <span className="text-xs text-[var(--foreground-muted)] uppercase tracking-wide">
                           Threshold
                         </span>
-                        <p className="text-[var(--foreground)]">
+                        <p className="text-[var(--foreground)] font-medium mt-0.5">
                           {group.friends_needed} of {group.friends.length}
                         </p>
                       </div>
                       <div>
-                        <span className="text-[var(--foreground-muted)]">
+                        <span className="text-xs text-[var(--foreground-muted)] uppercase tracking-wide">
                           Inheritance Delay
                         </span>
-                        <p className="text-[var(--foreground)]">
+                        <p className="text-[var(--foreground)] font-medium mt-0.5">
                           {group.inheritance_delay} blocks
                         </p>
                       </div>
                       <div>
-                        <span className="text-[var(--foreground-muted)]">
+                        <span className="text-xs text-[var(--foreground-muted)] uppercase tracking-wide">
                           Cancel Delay
                         </span>
-                        <p className="text-[var(--foreground)]">
+                        <p className="text-[var(--foreground)] font-medium mt-0.5">
                           {group.cancel_delay} blocks
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-sm mb-2">
-                      <span className="text-[var(--foreground-muted)]">
+                    <div className="text-sm mb-3">
+                      <span className="text-xs text-[var(--foreground-muted)] uppercase tracking-wide">
                         Inheritor
                       </span>
                       {getSubscanUrl(selectedNetwork.id, group.inheritor) ? (
@@ -1045,12 +1045,12 @@ export default function SocialRecoverySetup() {
                           }
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block font-mono text-xs text-[var(--polkadot-accent)] hover:underline truncate"
+                          className="block font-mono text-xs text-[var(--polkadot-accent)] hover:underline truncate mt-0.5"
                         >
                           {group.inheritor}
                         </a>
                       ) : (
-                        <p className="font-mono text-xs text-[var(--foreground)] truncate">
+                        <p className="font-mono text-xs text-[var(--foreground)] truncate mt-0.5">
                           {group.inheritor}
                         </p>
                       )}
@@ -1061,7 +1061,7 @@ export default function SocialRecoverySetup() {
                         {group.friends.length} friend
                         {group.friends.length !== 1 ? "s" : ""}
                       </summary>
-                      <ul className="mt-2 space-y-1">
+                      <ul className="mt-2 space-y-1 pl-2">
                         {group.friends.map((friend, i) => (
                           <li key={i} className="font-mono text-xs truncate">
                             {getSubscanUrl(selectedNetwork.id, friend) ? (
@@ -1088,7 +1088,7 @@ export default function SocialRecoverySetup() {
                 ))}
             </div>
           ) : (
-            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg flex items-center justify-between border-dashed">
+            <div className="p-6 bg-[var(--background)] rounded-xl flex items-center justify-between">
               <span className="text-[var(--foreground-muted)] text-sm">
                 No recovery configured for this account yet.
               </span>
@@ -1105,12 +1105,13 @@ export default function SocialRecoverySetup() {
 
       {/* Recovery Attempts on My Account */}
       {isConnected && selectedAccount && !isFormVisible && (
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">
+        <div className="mt-8">
+          <div className="section-divider" />
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 mt-6">
             Recovery Attempts on My Account
           </h3>
           {isLoadingAttempts ? (
-            <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
+            <div className="empty-state">
               Loading recovery attempts...
             </div>
           ) : attemptsOnAccount.length > 0 ? (
@@ -1135,10 +1136,8 @@ export default function SocialRecoverySetup() {
               ))}
             </div>
           ) : (
-            <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg text-center border-dashed">
-              <span className="text-[var(--foreground-muted)] text-sm">
-                No active recovery attempts on your account.
-              </span>
+            <div className="empty-state">
+              No active recovery attempts on your account.
             </div>
           )}
         </div>
@@ -1185,7 +1184,7 @@ export default function SocialRecoverySetup() {
           {friendGroups.map((group, groupIndex) => (
             <div
               key={groupIndex}
-              className="border border-[var(--border-color)] rounded-xl p-5 space-y-4 bg-[var(--background)]"
+              className="rounded-xl p-6 space-y-5 bg-[var(--background)]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1239,10 +1238,10 @@ export default function SocialRecoverySetup() {
                       Friend Group {groupIndex + 1}
                     </h4>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded ${
+                      className={`text-xs px-2.5 py-1 rounded-full inline-block mt-1 ${
                         groupIndex === 0
                           ? "bg-[var(--polkadot-accent)] text-white"
-                          : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                          : "bg-[var(--grey-200)] dark:bg-[var(--grey-700)] text-[var(--foreground-muted)]"
                       }`}
                     >
                       {groupIndex === 0
@@ -1289,7 +1288,7 @@ export default function SocialRecoverySetup() {
                           updateFriend(groupIndex, friendIndex, e.target.value)
                         }
                         placeholder="Enter friend's account address..."
-                        className={`focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm text-[var(--foreground)] ${group.friends.length > 1 ? "pr-10" : ""}`}
+                        className={`focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)] ${group.friends.length > 1 ? "pr-10" : ""}`}
                       />
                       {group.friends.length > 1 && (
                         <button
@@ -1350,7 +1349,7 @@ export default function SocialRecoverySetup() {
                     updateFriendGroup(groupIndex, "inheritor", e.target.value)
                   }
                   placeholder="Enter inheritor's account address..."
-                  className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm text-[var(--foreground)]"
+                  className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
                 />
               </div>
 
@@ -1383,7 +1382,7 @@ export default function SocialRecoverySetup() {
                     Deposit Amount
                     <Tooltip content="Required deposit locked when creating this recovery configuration. Will be returned when the configuration is removed." />
                   </label>
-                  <div className="focus-parent flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
+                  <div className="focus-parent flex items-center bg-[var(--surface)] rounded-lg focus-within:ring-2 focus-within:ring-[var(--polkadot-accent)]/20 transition-all overflow-hidden">
                     <input
                       type="text"
                       inputMode="decimal"
@@ -1400,9 +1399,9 @@ export default function SocialRecoverySetup() {
                         }
                       }}
                       placeholder="0.00"
-                      className="flex-1 h-11 px-3 bg-[var(--surface)] rounded-l-lg text-[var(--foreground)]"
+                      className="flex-1 h-11 px-3 bg-transparent text-[var(--foreground)]"
                     />
-                    <div className="flex items-center justify-center h-11 px-4 bg-[var(--surface)] border-l border-[var(--border-color)] rounded-r-lg text-sm font-medium text-[var(--foreground-muted)]">
+                    <div className="flex items-center justify-center h-11 px-4 text-sm font-medium text-[var(--foreground-muted)]">
                       {selectedNetwork.tokenSymbol}
                     </div>
                   </div>
@@ -1414,7 +1413,7 @@ export default function SocialRecoverySetup() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setIsFormVisible(false)}
-              className="flex-1 py-4 px-4 border border-[var(--border-color)] text-[var(--foreground)] font-semibold rounded-xl hover:bg-[var(--border-color)] transition-colors"
+              className="flex-1 py-4 px-4 bg-[var(--background)] text-[var(--foreground)] font-semibold rounded-xl hover:bg-[var(--grey-200)] dark:hover:bg-[var(--grey-700)] transition-colors"
             >
               Cancel
             </button>
@@ -1443,7 +1442,7 @@ export default function SocialRecoverySetup() {
 
       {/* Transaction Status */}
       {txStatus !== "idle" && txStatus !== "error" && (
-        <div className="mt-4 p-4 bg-[var(--info-bg)] border border-[var(--info-border)] text-[var(--info)] rounded-lg">
+        <div className="mt-6 alert alert-info">
           <div className="flex items-center gap-2">
             {(txStatus === "signing" ||
               txStatus === "submitting" ||
@@ -1465,7 +1464,7 @@ export default function SocialRecoverySetup() {
                 />
               </svg>
             )}
-            <span>
+            <span className="text-sm">
               {txStatus === "signing" &&
                 "Please sign the transaction in your wallet..."}
               {txStatus === "submitting" &&
@@ -1476,7 +1475,7 @@ export default function SocialRecoverySetup() {
             </span>
           </div>
           {txHash && (
-            <p className="mt-2 text-xs font-mono break-all">
+            <p className="mt-2 text-xs font-mono opacity-75 break-all">
               Transaction hash: {txHash}
             </p>
           )}
@@ -1485,14 +1484,14 @@ export default function SocialRecoverySetup() {
 
       {/* Success Message */}
       {successMessage && (
-        <div className="mt-4 p-4 bg-[var(--success-bg)] border border-[var(--success-border)] text-[var(--success)] rounded-lg">
+        <div className="mt-6 alert alert-success text-sm">
           {successMessage}
         </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 p-4 bg-[var(--error-bg)] border border-[var(--error-border)] text-[var(--error)] rounded-lg">
+        <div className="mt-6 alert alert-error text-sm">
           {error}
         </div>
       )}
@@ -1501,10 +1500,10 @@ export default function SocialRecoverySetup() {
       {isInfoDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
-            className="absolute inset-0 bg-[var(--grey-950)]/50"
+            className="absolute inset-0 bg-[var(--grey-950)]/50 backdrop-blur-sm"
             onClick={() => setIsInfoDialogOpen(false)}
           />
-          <div className="relative bg-[var(--surface)] rounded-2xl max-w-lg w-full mx-4 p-6 border border-[var(--border-color)] max-h-[80vh] overflow-y-auto">
+          <div className="relative card max-w-lg w-full mx-4 p-6 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-xl text-[var(--foreground)]">
                 How Social Recovery Works

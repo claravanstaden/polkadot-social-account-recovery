@@ -384,7 +384,7 @@ export default function InheritedPage() {
 
   if (!wallet) {
     return (
-      <div className="w-full max-w-4xl mx-auto p-8 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)] shadow-[0_0_30px_rgba(0,0,0,0.1)] dark:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+      <div className="w-full max-w-4xl mx-auto p-8 card">
         <div className="text-center py-8">
           <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2">
             Inherited Accounts
@@ -404,9 +404,9 @@ export default function InheritedPage() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-8 bg-[var(--surface)] rounded-2xl border border-[var(--border-color)] shadow-[0_0_30px_rgba(0,0,0,0.1)] dark:shadow-[0_0_30px_rgba(0,0,0,0.3)]">
+    <div className="w-full max-w-4xl mx-auto p-8 card">
       {apiError && (
-        <div className="mb-4 p-4 bg-[var(--warning-bg)] border border-[var(--warning-border)] text-[var(--warning)] rounded-lg text-sm">
+        <div className="mb-6 alert alert-warning text-sm">
           Network connection issue: {apiError}
         </div>
       )}
@@ -450,7 +450,7 @@ export default function InheritedPage() {
             id="account-select"
             value={selectedAccount}
             onChange={(e) => selectAccount(e.target.value)}
-            className="shadow-[0_2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-[var(--foreground)]"
+            className="text-sm focus-border-only w-full pl-4 pr-10 py-3 bg-[var(--background)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-[var(--foreground)]"
           >
             <option value="">Select an account...</option>
             {accounts.map((acc) => (
@@ -463,18 +463,20 @@ export default function InheritedPage() {
         )}
       </div>
 
+      <div className="section-divider" />
+
       {/* Inherited Accounts List */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-[var(--foreground)] mb-3">
+        <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
           Inherited Accounts
         </h3>
 
         {isLoading ? (
-          <div className="p-4 bg-[var(--background)] rounded-lg text-[var(--foreground-muted)] text-center">
+          <div className="empty-state">
             Loading inherited accounts...
           </div>
         ) : inheritedAccounts.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <p className="text-sm text-[var(--foreground-muted)]">
               You have inherited access to {inheritedAccounts.length} account
               {inheritedAccounts.length !== 1 ? "s" : ""}
@@ -482,25 +484,26 @@ export default function InheritedPage() {
             {inheritedAccounts.map((account) => (
               <div
                 key={account.address}
-                className={`p-4 rounded-lg border bg-[var(--background)] transition-colors ${
+                className={`p-5 rounded-xl bg-[var(--background)] transition-all cursor-pointer hover:shadow-md ${
                   selectedInherited === account.address
-                    ? "border-[var(--polkadot-accent)] bg-[var(--polkadot-accent)]/5"
-                    : "border-[var(--border-color)]"
+                    ? "ring-2 ring-[var(--polkadot-accent)] shadow-md"
+                    : ""
                 }`}
+                onClick={() => setSelectedInherited(account.address)}
               >
                 {/* Contest Warning */}
                 {account.canBeContested && (
-                  <div className="mb-3 p-3 bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-lg">
+                  <div className="mb-4 alert alert-warning">
                     <div className="flex items-start gap-2">
-                      <svg className="w-5 h-5 text-[var(--warning)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
                       <div>
-                        <p className="text-sm font-medium text-[var(--warning)]">
+                        <p className="text-sm font-medium">
                           This inheritance can be contested
                         </p>
-                        <p className="text-xs text-[var(--warning)] mt-1">
-                          {account.contestingGroups.length} friend group{account.contestingGroups.length !== 1 ? "s" : ""} with higher priority (lower order) can still initiate recovery and take over access.
+                        <p className="text-xs opacity-90 mt-1">
+                          {account.contestingGroups.length} friend group{account.contestingGroups.length !== 1 ? "s" : ""} with higher priority can still take over access.
                         </p>
                       </div>
                     </div>
@@ -509,30 +512,27 @@ export default function InheritedPage() {
 
                 {/* Ongoing Attempts Warning */}
                 {account.hasOngoingAttempts && (
-                  <div className="mb-3 p-3 bg-[var(--info-bg)] border border-[var(--info-border)] rounded-lg">
+                  <div className="mb-4 alert alert-info">
                     <div className="flex items-start gap-2">
-                      <svg className="w-5 h-5 text-[var(--info)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <div>
-                        <p className="text-sm font-medium text-[var(--info)]">
+                        <p className="text-sm font-medium">
                           Ongoing recovery attempts
                         </p>
-                        <p className="text-xs text-[var(--info)] mt-1">
-                          Other friend groups are attempting to recover this account. If they succeed with a higher priority group, they may take over access.
+                        <p className="text-xs opacity-90 mt-1">
+                          Other groups are attempting recovery. If they succeed with higher priority, they may take over access.
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Account Header - clickable for selection */}
-                <div
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setSelectedInherited(account.address)}
-                >
+                {/* Account Header */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-[var(--foreground-muted)]">Account</p>
+                    <p className="text-xs text-[var(--foreground-muted)] uppercase tracking-wide mb-1">Account</p>
                     {getSubscanUrl(selectedNetwork.id, account.address) ? (
                       <a
                         href={getSubscanUrl(selectedNetwork.id, account.address)!}
@@ -550,41 +550,41 @@ export default function InheritedPage() {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-[var(--foreground-muted)]">Balance</p>
-                    <p className="font-medium text-[var(--foreground)]">{account.balance}</p>
+                    <p className="text-xs text-[var(--foreground-muted)] uppercase tracking-wide mb-1">Balance</p>
+                    <p className="font-semibold text-[var(--foreground)]">{account.balance}</p>
                   </div>
                 </div>
 
                 {/* Inheritance Info */}
-                <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
-                  <div className="flex items-center gap-4 text-sm">
-                    <div>
-                      <span className="text-[var(--foreground-muted)]">Your Priority: </span>
-                      <span className={`font-medium ${account.inheritanceOrder === 0 ? "text-[var(--success)]" : "text-[var(--foreground)]"}`}>
-                        {account.inheritanceOrder === 0 ? "Highest (0)" : `Order ${account.inheritanceOrder}`}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[var(--foreground-muted)]">Friend Groups: </span>
-                      <span className="font-medium text-[var(--foreground)]">{account.friendGroups.length}</span>
-                    </div>
+                <div className="mt-4 flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      account.inheritanceOrder === 0
+                        ? "bg-[var(--success-bg)] text-[var(--success)]"
+                        : "bg-[var(--background)] text-[var(--foreground-muted)]"
+                    }`}>
+                      {account.inheritanceOrder === 0 ? "Highest Priority" : `Priority ${account.inheritanceOrder}`}
+                    </span>
                   </div>
+                  <span className="text-[var(--foreground-muted)]">
+                    {account.friendGroups.length} friend group{account.friendGroups.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
 
                 {/* Friend Groups Details (Expandable) */}
                 {account.friendGroups.length > 0 && (
-                  <details className="mt-3">
+                  <details className="mt-4" onClick={(e) => e.stopPropagation()}>
                     <summary className="text-sm text-[var(--foreground-muted)] cursor-pointer hover:text-[var(--foreground)]">
                       View friend groups configuration
                     </summary>
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-3 space-y-2">
                       {account.friendGroups.map((group, idx) => (
                         <div
                           key={idx}
-                          className={`p-3 rounded-lg border text-sm ${
+                          className={`p-3 rounded-lg text-sm ${
                             account.contestingGroups.includes(idx)
-                              ? "border-[var(--warning-border)] bg-[var(--warning-bg)]/50"
-                              : "border-[var(--border-color)] bg-[var(--surface)]"
+                              ? "bg-[var(--warning-bg)]"
+                              : "bg-[var(--surface)]"
                           }`}
                         >
                           <div className="flex items-center justify-between mb-2">
@@ -593,28 +593,22 @@ export default function InheritedPage() {
                             </span>
                             <div className="flex items-center gap-2">
                               {account.contestingGroups.includes(idx) && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-[var(--warning)] text-white">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--warning)] text-white">
                                   Can Contest
                                 </span>
                               )}
-                              <span className={`text-xs px-2 py-0.5 rounded ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
                                 group.inheritance_order === 0
                                   ? "bg-[var(--polkadot-accent)] text-white"
-                                  : "bg-[var(--surface)] text-[var(--foreground-muted)] border border-[var(--border-color)]"
+                                  : "bg-[var(--grey-200)] dark:bg-[var(--grey-700)] text-[var(--foreground-muted)]"
                               }`}>
                                 Priority {group.inheritance_order}
                               </span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                              <span className="text-[var(--foreground-muted)]">Threshold: </span>
-                              <span className="text-[var(--foreground)]">{group.friends_needed}/{group.friends.length}</span>
-                            </div>
-                            <div>
-                              <span className="text-[var(--foreground-muted)]">Delay: </span>
-                              <span className="text-[var(--foreground)]">{group.inheritance_delay} blocks</span>
-                            </div>
+                          <div className="flex gap-4 text-xs text-[var(--foreground-muted)]">
+                            <span>Threshold: <span className="text-[var(--foreground)]">{group.friends_needed}/{group.friends.length}</span></span>
+                            <span>Delay: <span className="text-[var(--foreground)]">{group.inheritance_delay} blocks</span></span>
                           </div>
                         </div>
                       ))}
@@ -623,9 +617,9 @@ export default function InheritedPage() {
                 )}
 
                 {/* Actions */}
-                <div className="mt-3 pt-3 border-t border-[var(--border-color)] flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                   {selectedInherited === account.address ? (
-                    <span className="text-xs text-[var(--polkadot-accent)] flex items-center gap-1">
+                    <span className="text-sm text-[var(--polkadot-accent)] flex items-center gap-1.5 font-medium">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
@@ -633,8 +627,8 @@ export default function InheritedPage() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => setSelectedInherited(account.address)}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-[var(--polkadot-accent)] text-white hover:bg-[var(--polkadot-accent-hover)] transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setSelectedInherited(account.address); }}
+                      className="text-sm px-4 py-2 rounded-lg bg-[var(--polkadot-accent)] text-white hover:bg-[var(--polkadot-accent-hover)] transition-colors"
                     >
                       Select for Transfer
                     </button>
@@ -645,12 +639,12 @@ export default function InheritedPage() {
                     <Tooltip content={
                       account.hasOngoingAttempts
                         ? "Cannot clear while there are ongoing attempts"
-                        : "Remove all friend groups to prevent any future recovery contests"
+                        : "Remove all friend groups to prevent future contests"
                     }>
                       <button
-                        onClick={() => handleClearFriendGroups(account.address)}
+                        onClick={(e) => { e.stopPropagation(); handleClearFriendGroups(account.address); }}
                         disabled={account.hasOngoingAttempts || txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
-                        className="text-xs px-3 py-1.5 rounded-lg border border-[var(--warning-border)] text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="text-sm px-4 py-2 rounded-lg text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Clear Friend Groups
                       </button>
@@ -659,7 +653,7 @@ export default function InheritedPage() {
 
                   {/* No friend groups badge */}
                   {account.friendGroups.length === 0 && (
-                    <span className="text-xs px-2 py-1 rounded bg-[var(--success-bg)] text-[var(--success)] border border-[var(--success-border)]">
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success-bg)] text-[var(--success)]">
                       Secure - No friend groups
                     </span>
                   )}
@@ -668,102 +662,103 @@ export default function InheritedPage() {
             ))}
           </div>
         ) : (
-          <div className="p-4 bg-[var(--background)] border border-[var(--border-color)] rounded-lg text-center border-dashed">
-            <span className="text-[var(--foreground-muted)] text-sm">
-              You have not inherited access to any accounts yet.
-            </span>
+          <div className="empty-state">
+            You have not inherited access to any accounts yet.
           </div>
         )}
       </div>
 
       {/* Transfer Form */}
       {inheritedAccounts.length > 0 && (
-        <div className="border border-[var(--border-color)] rounded-xl p-5 bg-[var(--background)]">
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
-            Transfer from Inherited Account
-          </h3>
+        <>
+          <div className="section-divider" />
+          <div className="rounded-xl p-6 bg-[var(--background)]">
+            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
+              Transfer from Inherited Account
+            </h3>
 
-          {!selectedInherited ? (
-            <p className="text-sm text-[var(--foreground-muted)] text-center py-4">
-              Select an inherited account above to transfer from
-            </p>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                  From Account
-                </label>
-                <div className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg">
-                  <p className="font-mono text-sm text-[var(--foreground)] truncate">
-                    {selectedInherited}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
-                  Recipient Address
-                  <Tooltip content="The account that will receive the transferred tokens" />
-                </label>
-                <input
-                  type="text"
-                  value={transferRecipient}
-                  onChange={(e) => setTransferRecipient(e.target.value)}
-                  placeholder="Enter recipient address..."
-                  className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-color)] rounded-lg focus:border-[var(--polkadot-accent)] transition-colors text-sm text-[var(--foreground)]"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
-                  Amount
-                  <Tooltip content="Amount to transfer (uses transferKeepAlive to prevent killing the account)" />
-                </label>
-                <div className="flex items-center border border-[var(--border-color)] rounded-lg focus-within:border-[var(--polkadot-accent)] transition-colors">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={transferAmount}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        setTransferAmount(value);
-                      }
-                    }}
-                    placeholder="0.00"
-                    className="flex-1 h-11 px-4 bg-[var(--surface)] rounded-l-lg text-[var(--foreground)]"
-                  />
-                  <div className="flex items-center justify-center h-11 px-4 bg-[var(--surface)] border-l border-[var(--border-color)] rounded-r-lg text-sm font-medium text-[var(--foreground-muted)]">
-                    {selectedNetwork.tokenSymbol}
+            {!selectedInherited ? (
+              <p className="text-sm text-[var(--foreground-muted)] text-center py-6">
+                Select an inherited account above to transfer from
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs text-[var(--foreground-muted)] uppercase tracking-wide mb-2">
+                    From Account
+                  </label>
+                  <div className="px-4 py-3 bg-[var(--surface)] rounded-lg">
+                    <p className="font-mono text-sm text-[var(--foreground)] truncate">
+                      {selectedInherited}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              <button
-                onClick={handleTransfer}
-                disabled={
-                  !transferRecipient ||
-                  !transferAmount ||
-                  txStatus === "signing" ||
-                  txStatus === "submitting" ||
-                  txStatus === "in_block"
-                }
-                className="w-full py-3 px-4 bg-[var(--polkadot-accent)] text-white font-semibold rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
-              >
-                {txStatus === "signing" && "Waiting for signature..."}
-                {txStatus === "submitting" && "Submitting transaction..."}
-                {txStatus === "in_block" && "Waiting for finalization..."}
-                {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
-                  "Transfer"}
-              </button>
-            </div>
-          )}
-        </div>
+                <div>
+                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
+                    Recipient Address
+                    <Tooltip content="The account that will receive the transferred tokens" />
+                  </label>
+                  <input
+                    type="text"
+                    value={transferRecipient}
+                    onChange={(e) => setTransferRecipient(e.target.value)}
+                    placeholder="Enter recipient address..."
+                    className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
+                    Amount
+                    <Tooltip content="Amount to transfer (uses transferKeepAlive to prevent killing the account)" />
+                  </label>
+                  <div className="flex items-center bg-[var(--surface)] rounded-lg focus-within:ring-2 focus-within:ring-[var(--polkadot-accent)]/20 transition-all overflow-hidden">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={transferAmount}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          setTransferAmount(value);
+                        }
+                      }}
+                      placeholder="0.00"
+                      className="flex-1 h-12 px-4 bg-transparent text-[var(--foreground)]"
+                    />
+                    <div className="flex items-center justify-center h-12 px-4 text-sm font-medium text-[var(--foreground-muted)]">
+                      {selectedNetwork.tokenSymbol}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleTransfer}
+                  disabled={
+                    !transferRecipient ||
+                    !transferAmount ||
+                    txStatus === "signing" ||
+                    txStatus === "submitting" ||
+                    txStatus === "in_block"
+                  }
+                  className="w-full py-3 px-4 bg-[var(--polkadot-accent)] text-white font-semibold rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
+                >
+                  {txStatus === "signing" && "Waiting for signature..."}
+                  {txStatus === "submitting" && "Submitting transaction..."}
+                  {txStatus === "in_block" && "Waiting for finalization..."}
+                  {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
+                    "Transfer"}
+                </button>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Transaction Status */}
       {txStatus !== "idle" && txStatus !== "error" && (
-        <div className="mt-4 p-4 bg-[var(--info-bg)] border border-[var(--info-border)] text-[var(--info)] rounded-lg">
+        <div className="mt-6 alert alert-info">
           <div className="flex items-center gap-2">
             {(txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block") && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
@@ -783,7 +778,7 @@ export default function InheritedPage() {
                 />
               </svg>
             )}
-            <span>
+            <span className="text-sm">
               {txStatus === "signing" && "Please sign the transaction in your wallet..."}
               {txStatus === "submitting" && "Submitting transaction to the network..."}
               {txStatus === "in_block" && "Transaction included in block, waiting for finalization..."}
@@ -791,7 +786,7 @@ export default function InheritedPage() {
             </span>
           </div>
           {txHash && (
-            <p className="mt-2 text-xs font-mono break-all">
+            <p className="mt-2 text-xs font-mono opacity-75 break-all">
               Transaction hash: {txHash}
             </p>
           )}
@@ -800,14 +795,14 @@ export default function InheritedPage() {
 
       {/* Success Message */}
       {successMessage && (
-        <div className="mt-4 p-4 bg-[var(--success-bg)] border border-[var(--success-border)] text-[var(--success)] rounded-lg">
+        <div className="mt-6 alert alert-success text-sm">
           {successMessage}
         </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 p-4 bg-[var(--error-bg)] border border-[var(--error-border)] text-[var(--error)] rounded-lg">
+        <div className="mt-6 alert alert-error text-sm">
           {error}
         </div>
       )}

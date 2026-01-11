@@ -203,3 +203,67 @@ select {
   transition-duration: 0.15s;
   transition-timing-function: ease;
 }
+
+/* Clean card styles */
+.card {
+  background: var(--surface);
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+:root.dark .card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Alert styles with left accent border */
+.alert {
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid;
+}
+
+.alert-warning {
+  background: var(--warning-bg);
+  border-left-color: var(--warning);
+  color: var(--warning);
+}
+
+.alert-error {
+  background: var(--error-bg);
+  border-left-color: var(--error);
+  color: var(--error);
+}
+
+.alert-success {
+  background: var(--success-bg);
+  border-left-color: var(--success);
+  color: var(--success);
+}
+
+.alert-info {
+  background: var(--info-bg);
+  border-left-color: var(--info);
+  color: var(--info);
+}
+
+/* Section divider - subtle line */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-color), transparent);
+  margin: 1.5rem 0;
+}
+
+/* Empty state styling */
+.empty-state {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: var(--foreground-muted);
+  background: var(--background);
+  border-radius: 0.75rem;
+}
