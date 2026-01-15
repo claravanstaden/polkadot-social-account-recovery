@@ -89,50 +89,24 @@ export default function InheritedPage() {
       const apiCall = api.call as any;
       const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
 
+      if (!recoveryApi) {
+        setInheritedAccounts([]);
+        setIsLoading(false);
+        return;
+      }
+
       let inheritedAddresses: string[] = [];
 
-      if (recoveryApi && recoveryApi.inheritance) {
-        // Use runtime API
+      // Get all accounts this user has inherited
+      if (recoveryApi.inheritance) {
         const result = await recoveryApi.inheritance(selectedAccount);
         if (result && !result.isEmpty) {
           inheritedAddresses = result.toJSON() || [];
-        }
-      } else {
-        // Fallback: iterate through Inheritor storage
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiQuery = api.query as any;
-        const recoveryQuery =
-          apiQuery.recovery ||
-          apiQuery.socialRecovery ||
-          apiQuery.social_recovery;
-
-        if (recoveryQuery?.inheritor) {
-          const entries = await recoveryQuery.inheritor.entries();
-          for (const [key, value] of entries) {
-            if (value && !value.isEmpty) {
-              const data = value.toJSON();
-              // Data structure: [InheritanceOrder, AccountId, Ticket]
-              const inheritorAddress = Array.isArray(data)
-                ? data[1]
-                : data?.inheritor;
-              if (inheritorAddress === selectedAccount) {
-                // Extract the lost account from the key
-                const lostAccount = key.args[0].toString();
-                inheritedAddresses.push(lostAccount);
-              }
-            }
-          }
         }
       }
 
       // Fetch balances and friend groups for each inherited account
       const accountsWithBalances: InheritedAccount[] = [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiQuery = api.query as any;
-      const recoveryQuery =
-        apiQuery.recovery ||
-        apiQuery.socialRecovery ||
-        apiQuery.social_recovery;
       const tokenDecimals = api.registry.chainDecimals[0];
       const tokenSymbol = api.registry.chainTokens[0];
 
@@ -149,49 +123,49 @@ export default function InheritedPage() {
             maximumFractionDigits: 2,
           });
 
-          // Fetch inheritance order from Inheritor storage
-          let inheritanceOrder = 0;
-          if (recoveryQuery?.inheritor) {
-            const inheritorData = await recoveryQuery.inheritor(address);
-            if (inheritorData && !inheritorData.isEmpty) {
-              const iData = inheritorData.toJSON();
-              inheritanceOrder = Array.isArray(iData)
-                ? iData[0]
-                : (iData?.inheritance_order ?? 0);
-            }
-          }
-
           // Fetch friend groups
           let friendGroups: FriendGroup[] = [];
-          if (recoveryQuery?.friendGroups) {
-            const fgResult = await recoveryQuery.friendGroups(address);
+          let inheritanceOrder = 0;
+
+          if (recoveryApi.friendGroups) {
+            const fgResult = await recoveryApi.friendGroups(address);
             if (fgResult && !fgResult.isEmpty) {
               const fgData = fgResult.toJSON();
-              let fgArray: any[] = [];
-              if (Array.isArray(fgData)) {
-                fgArray = Array.isArray(fgData[0]) ? fgData[0] : fgData;
+              if (Array.isArray(fgData) && fgData.length > 0) {
+                friendGroups = fgData
+                  .filter((g: any) => g !== null)
+                  .map((g: any) => ({
+                    friends: g.friends || [],
+                    friends_needed: g.friends_needed ?? g.friendsNeeded ?? 0,
+                    inheritor: g.inheritor || "",
+                    inheritance_delay:
+                      g.inheritance_delay ?? g.inheritanceDelay ?? 0,
+                    inheritance_order:
+                      g.inheritance_order ?? g.inheritanceOrder ?? 0,
+                    cancel_delay: g.cancel_delay ?? g.cancelDelay ?? 0,
+                    deposit: g.deposit ?? 0,
+                  }));
+
+                // Find the inheritance order from the friend group that matches the current inheritor
+                for (const group of friendGroups) {
+                  if (group.inheritor === selectedAccount) {
+                    inheritanceOrder = group.inheritance_order;
+                    break;
+                  }
+                }
               }
-              friendGroups = fgArray
-                .filter((g: any) => g !== null)
-                .map((g: any) => ({
-                  friends: g.friends || [],
-                  friends_needed: g.friends_needed ?? g.friendsNeeded ?? 0,
-                  inheritor: g.inheritor || "",
-                  inheritance_delay:
-                    g.inheritance_delay ?? g.inheritanceDelay ?? 0,
-                  inheritance_order:
-                    g.inheritance_order ?? g.inheritanceOrder ?? 0,
-                  cancel_delay: g.cancel_delay ?? g.cancelDelay ?? 0,
-                  deposit: g.deposit ?? 0,
-                }));
             }
           }
 
-          // Check for ongoing attempts
+          // Check for ongoing attempts using view function
           let hasOngoingAttempts = false;
-          if (recoveryQuery?.attempt) {
-            const attempts = await recoveryQuery.attempt.entries(address);
-            hasOngoingAttempts = attempts.length > 0;
+          if (recoveryApi.attempts) {
+            const attemptsResult = await recoveryApi.attempts(address);
+            if (attemptsResult && !attemptsResult.isEmpty) {
+              const attemptsData = attemptsResult.toJSON();
+              hasOngoingAttempts =
+                Array.isArray(attemptsData) && attemptsData.length > 0;
+            }
           }
 
           // Check which groups can contest (lower order than current)
@@ -234,7 +208,7 @@ export default function InheritedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [api, isConnected, selectedAccount, selectedNetwork]);
+  }, [api, isConnected, selectedAccount]);
 
   // Fetch inherited accounts when connection or account changes
   useEffect(() => {

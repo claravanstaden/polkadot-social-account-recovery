@@ -102,116 +102,79 @@ export default function HelpRecoverPage() {
     setIsLoading(true);
 
     try {
-      // Get current block number
-      const header = await api.rpc.chain.getHeader();
-      setCurrentBlock(header.number.toNumber());
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiQuery = api.query as any;
-      const recoveryQuery =
-        apiQuery.recovery ||
-        apiQuery.socialRecovery ||
-        apiQuery.social_recovery;
+      const apiCall = api.call as any;
+      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
 
-      if (!recoveryQuery) {
+      if (!recoveryApi) {
         showToast("Recovery pallet not found on this network", "error");
         setIsLoading(false);
         return;
       }
 
-      // Fetch friend groups
+      if (recoveryApi.providedBlockNumber) {
+        const blockResult = await recoveryApi.providedBlockNumber();
+        if (blockResult && !blockResult.isEmpty) {
+          setCurrentBlock(blockResult.toJSON() as number);
+        }
+      } else {
+        const header = await api.rpc.chain.getHeader();
+        setCurrentBlock(header.number.toNumber());
+      }
+
+      // Fetch friend groups using view function
       let fetchedFriendGroups: FriendGroup[] = [];
-      const possibleKeys = [
-        "friendGroups",
-        "recoverable",
-        "friendGroup",
-        "recovery",
-        "config",
-      ];
-
-      let result = null;
-      const storageKeys = Object.keys(recoveryQuery);
-
-      // Try common storage key names first
-      for (const key of possibleKeys) {
-        if (recoveryQuery[key]) {
-          try {
-            result = await recoveryQuery[key](lostAccount);
-            if (result && !result.isEmpty) {
-              break;
-            }
-          } catch {
-            // Skip keys that fail
+      if (recoveryApi.friendGroups) {
+        const result = await recoveryApi.friendGroups(lostAccount);
+        if (result && !result.isEmpty) {
+          const data = result.toJSON();
+          if (Array.isArray(data) && data.length > 0) {
+            fetchedFriendGroups = data
+              .filter((item: any) => item !== null)
+              .map((group: any) => ({
+                friends: group.friends || [],
+                friends_needed:
+                  group.friends_needed ?? group.friendsNeeded ?? 0,
+                inheritor: group.inheritor || "",
+                inheritance_delay:
+                  group.inheritance_delay ?? group.inheritanceDelay ?? 0,
+                inheritance_order:
+                  group.inheritance_order ?? group.inheritanceOrder ?? 0,
+                cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
+                deposit: group.deposit ?? 0,
+              }));
           }
         }
       }
-
-      // If no common key found, try the first available key that looks like a map
-      if (!result || result.isEmpty) {
-        for (const key of storageKeys) {
-          if (
-            typeof recoveryQuery[key] === "function" &&
-            !key.startsWith("_")
-          ) {
-            try {
-              result = await recoveryQuery[key](lostAccount);
-              if (result && !result.isEmpty) {
-                break;
-              }
-            } catch {
-              // Skip keys that don't accept account as parameter
-            }
-          }
-        }
-      }
-
-      if (result && !result.isEmpty) {
-        const data = result.toJSON();
-        let friendGroupsArray: any[] = [];
-
-        if (Array.isArray(data)) {
-          if (data.length > 0 && Array.isArray(data[0])) {
-            friendGroupsArray = data[0].filter((item: any) => item !== null);
-          } else {
-            friendGroupsArray = data.filter((item: any) => item !== null);
-          }
-        }
-
-        if (friendGroupsArray.length > 0) {
-          fetchedFriendGroups = friendGroupsArray.map((group: any) => ({
-            friends: group.friends || [],
-            friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
-            inheritor: group.inheritor || "",
-            inheritance_delay:
-              group.inheritance_delay ?? group.inheritanceDelay ?? 0,
-            inheritance_order:
-              group.inheritance_order ?? group.inheritanceOrder ?? 0,
-            cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
-            deposit: group.deposit ?? 0,
-          }));
-        }
-      }
-
       setFriendGroups(fetchedFriendGroups);
 
-      // Fetch current inheritor status
+      // Fetch current inheritor status using view function
       try {
-        if (recoveryQuery?.inheritor) {
-          const inheritorData = await recoveryQuery.inheritor(lostAccount);
-          if (inheritorData && !inheritorData.isEmpty) {
-            const iData = inheritorData.toJSON();
-            // Data structure: [InheritanceOrder, AccountId, Ticket]
-            const order = Array.isArray(iData)
-              ? iData[0]
-              : (iData?.inheritance_order ?? 0);
-            const inheritor = Array.isArray(iData)
-              ? iData[1]
-              : iData?.inheritor;
-            setRecoveryStatus({
-              isRecovered: true,
-              currentInheritor: inheritor,
-              currentInheritanceOrder: order,
-            });
+        if (recoveryApi.inheritor) {
+          const inheritorResult = await recoveryApi.inheritor(lostAccount);
+          if (inheritorResult && !inheritorResult.isEmpty) {
+            const inheritorAddress = inheritorResult.toJSON();
+            if (inheritorAddress) {
+              // To get the inheritance order, we need to check which friend group has this inheritor
+              let inheritanceOrder = 0;
+              for (const group of fetchedFriendGroups) {
+                if (group.inheritor === inheritorAddress) {
+                  inheritanceOrder = group.inheritance_order;
+                  break;
+                }
+              }
+              setRecoveryStatus({
+                isRecovered: true,
+                currentInheritor: inheritorAddress as string,
+                currentInheritanceOrder: inheritanceOrder,
+              });
+            } else {
+              setRecoveryStatus({
+                isRecovered: false,
+                currentInheritor: null,
+                currentInheritanceOrder: null,
+              });
+            }
           } else {
             setRecoveryStatus({
               isRecovered: false,
@@ -231,68 +194,77 @@ export default function HelpRecoverPage() {
 
       // Fetch attempts (in separate try-catch so it doesn't fail everything)
       try {
-        if (recoveryQuery?.attempt) {
-          const entries = await recoveryQuery.attempt.entries(lostAccount);
+        if (recoveryApi.attempts) {
+          const attemptsResult = await recoveryApi.attempts(lostAccount);
           const fetchedAttempts: AttemptWithGroup[] = [];
 
-          for (const [_key, value] of entries) {
-            if (value && !value.isEmpty) {
-              const data = value.toJSON();
-              const attemptData = Array.isArray(data) ? data[0] : data;
+          if (attemptsResult && !attemptsResult.isEmpty) {
+            const data = attemptsResult.toJSON();
+            if (Array.isArray(data)) {
+              for (const item of data) {
+                const [friendGroup, attemptData] = item;
 
-              if (attemptData) {
-                const friendGroupIndex =
-                  attemptData.friend_group_index ??
-                  attemptData.friendGroupIndex ??
-                  0;
-                const friendGroup = fetchedFriendGroups[friendGroupIndex];
+                // Count approvals and track voter indices from bitfield
+                let approvalCount = 0;
+                const voterIndices: number[] = [];
+                const approvals = attemptData.approvals;
 
-                if (friendGroup) {
-                  // Count approvals and track voter indices from bitfield
-                  let approvalCount = 0;
-                  const voterIndices: number[] = [];
-                  const approvals = attemptData.approvals;
-
-                  if (Array.isArray(approvals)) {
-                    for (
-                      let wordIdx = 0;
-                      wordIdx < approvals.length;
-                      wordIdx++
-                    ) {
-                      const word = approvals[wordIdx] >>> 0;
-                      for (let bit = 0; bit < 16; bit++) {
-                        if (word & (1 << bit)) {
-                          approvalCount++;
-                          voterIndices.push(wordIdx * 16 + bit);
-                        }
-                      }
-                    }
-                  } else if (typeof approvals === "number") {
-                    const word = approvals >>> 0;
-                    for (let bit = 0; bit < 32; bit++) {
+                if (Array.isArray(approvals)) {
+                  for (let wordIdx = 0; wordIdx < approvals.length; wordIdx++) {
+                    const word = approvals[wordIdx] >>> 0;
+                    for (let bit = 0; bit < 16; bit++) {
                       if (word & (1 << bit)) {
                         approvalCount++;
-                        voterIndices.push(bit);
+                        voterIndices.push(wordIdx * 16 + bit);
                       }
                     }
                   }
-
-                  fetchedAttempts.push({
-                    friendGroup,
-                    attempt: {
-                      friend_group_index: friendGroupIndex,
-                      initiator: attemptData.initiator || "",
-                      init_block:
-                        attemptData.init_block ?? attemptData.initBlock ?? 0,
-                      last_approval_block:
-                        attemptData.last_approval_block ??
-                        attemptData.lastApprovalBlock ??
-                        0,
-                      approvals: approvalCount,
-                      voterIndices,
-                    },
-                  });
+                } else if (typeof approvals === "number") {
+                  const word = approvals >>> 0;
+                  for (let bit = 0; bit < 32; bit++) {
+                    if (word & (1 << bit)) {
+                      approvalCount++;
+                      voterIndices.push(bit);
+                    }
+                  }
                 }
+
+                fetchedAttempts.push({
+                  friendGroup: {
+                    friends: friendGroup.friends || [],
+                    friends_needed:
+                      friendGroup.friends_needed ??
+                      friendGroup.friendsNeeded ??
+                      0,
+                    inheritor: friendGroup.inheritor || "",
+                    inheritance_delay:
+                      friendGroup.inheritance_delay ??
+                      friendGroup.inheritanceDelay ??
+                      0,
+                    inheritance_order:
+                      friendGroup.inheritance_order ??
+                      friendGroup.inheritanceOrder ??
+                      0,
+                    cancel_delay:
+                      friendGroup.cancel_delay ?? friendGroup.cancelDelay ?? 0,
+                    deposit: friendGroup.deposit ?? 0,
+                  },
+                  attempt: {
+                    friend_group_index:
+                      attemptData.friend_group_index ??
+                      attemptData.friendGroupIndex ??
+                      0,
+                    initiator: attemptData.initiator || "",
+                    init_block:
+                      attemptData.init_block ?? attemptData.initBlock ?? 0,
+                    last_approval_block:
+                      attemptData.last_approval_block ??
+                      attemptData.lastApprovalBlock ??
+                      0,
+                    approvals: approvalCount,
+                    voterIndices,
+                  },
+                });
               }
             }
           }
@@ -301,7 +273,6 @@ export default function HelpRecoverPage() {
         }
       } catch (attemptErr) {
         console.warn("Could not fetch attempts:", attemptErr);
-        // Don't fail completely, just set empty attempts
         setAttempts([]);
       }
     } catch (err) {

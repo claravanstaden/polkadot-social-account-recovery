@@ -125,80 +125,24 @@ export default function SocialRecoverySetup() {
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiQuery = api.query as any;
-      const recoveryQuery =
-        apiQuery.recovery ||
-        apiQuery.socialRecovery ||
-        apiQuery.social_recovery;
+      const apiCall = api.call as any;
+      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
 
-      if (!recoveryQuery) {
+      if (!recoveryApi || !recoveryApi.friendGroups) {
         setExistingFriendGroups(null);
         setIsLoadingExisting(false);
         return;
       }
 
-      // Try to find the storage for friend groups
-      let result = null;
-      const storageKeys = Object.keys(recoveryQuery);
-
-      // Try common storage key names
-      const possibleKeys = [
-        "friendGroups",
-        "recoverable",
-        "friendGroup",
-        "recovery",
-        "config",
-      ];
-      for (const key of possibleKeys) {
-        if (recoveryQuery[key]) {
-          result = await recoveryQuery[key](selectedAccount);
-          if (result && !result.isEmpty) {
-            break;
-          }
-        }
-      }
-
-      // If no common key found, try the first available key that looks like a map
-      if (!result || result.isEmpty) {
-        for (const key of storageKeys) {
-          if (
-            typeof recoveryQuery[key] === "function" &&
-            !key.startsWith("_")
-          ) {
-            try {
-              result = await recoveryQuery[key](selectedAccount);
-              if (result && !result.isEmpty) {
-                break;
-              }
-            } catch {
-              // Skip keys that don't accept account as parameter
-            }
-          }
-        }
-      }
+      const result = await recoveryApi.friendGroups(selectedAccount);
 
       if (result && !result.isEmpty) {
-        // Parse the result
         const data = result.toJSON();
 
-        // Handle different data structures
-        let friendGroupsArray: any[] = [];
-
-        if (Array.isArray(data)) {
-          // The data might be [[friendGroups], null] or [friendGroup1, friendGroup2]
-          // Check if first element is an array of friend groups
-          if (data.length > 0 && Array.isArray(data[0])) {
-            // Structure: [[friendGroup1, friendGroup2, ...], null]
-            friendGroupsArray = data[0].filter((item: any) => item !== null);
-          } else {
-            // Structure: [friendGroup1, friendGroup2, ...]
-            friendGroupsArray = data.filter((item: any) => item !== null);
-          }
-        }
-
-        if (friendGroupsArray.length > 0) {
-          const parsedGroups: FriendGroup[] = friendGroupsArray.map(
-            (group: any) => ({
+        if (Array.isArray(data) && data.length > 0) {
+          const parsedGroups: FriendGroup[] = data
+            .filter((item: any) => item !== null)
+            .map((group: any) => ({
               friends: group.friends || [],
               friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
               inheritor: group.inheritor || "",
@@ -208,8 +152,7 @@ export default function SocialRecoverySetup() {
                 group.inheritance_order ?? group.inheritanceOrder ?? 0,
               cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
               deposit: group.deposit ?? 0,
-            }),
-          );
+            }));
           setExistingFriendGroups(parsedGroups);
         } else {
           setExistingFriendGroups(null);
@@ -230,7 +173,7 @@ export default function SocialRecoverySetup() {
     fetchExistingFriendGroups();
   }, [fetchExistingFriendGroups]);
 
-  // Fetch attempts on this account and current block
+  // Fetch attempts on this account
   const fetchAttemptsOnAccount = useCallback(async () => {
     if (!api || !isConnected || !selectedAccount) {
       setAttemptsOnAccount([]);
@@ -240,83 +183,27 @@ export default function SocialRecoverySetup() {
     setIsLoadingAttempts(true);
 
     try {
-      // Get current block number
-      const header = await api.rpc.chain.getHeader();
-      setCurrentBlock(header.number.toNumber());
-
+      // Get current block number using view function if available, otherwise fall back to RPC
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const apiCall = api.call as any;
       const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
 
-      if (!recoveryApi || !recoveryApi.attempts) {
-        // Try storage query fallback
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiQuery = api.query as any;
-        const recoveryQuery =
-          apiQuery.recovery ||
-          apiQuery.socialRecovery ||
-          apiQuery.social_recovery;
-
-        if (recoveryQuery?.attempt) {
-          // Query all attempts for this account
-          const entries = await recoveryQuery.attempt.entries(selectedAccount);
-          const attempts: AttemptWithGroup[] = [];
-
-          for (const [_key, value] of entries) {
-            if (value && !value.isEmpty) {
-              const data = value.toJSON();
-              // Data structure: [AttemptOf, AttemptTicket, SecurityDeposit]
-              const attemptData = Array.isArray(data) ? data[0] : data;
-
-              if (attemptData) {
-                const friendGroupIndex =
-                  attemptData.friend_group_index ??
-                  attemptData.friendGroupIndex ??
-                  0;
-
-                // Get the friend group for this attempt
-                const friendGroup = existingFriendGroups?.[friendGroupIndex];
-                if (friendGroup) {
-                  // Count approvals from bitfield
-                  let approvalCount = 0;
-                  const approvals = attemptData.approvals;
-                  if (Array.isArray(approvals)) {
-                    for (const word of approvals) {
-                      approvalCount +=
-                        (word >>> 0).toString(2).split("1").length - 1;
-                    }
-                  } else if (typeof approvals === "number") {
-                    approvalCount =
-                      (approvals >>> 0).toString(2).split("1").length - 1;
-                  }
-
-                  attempts.push({
-                    friendGroup,
-                    attempt: {
-                      friend_group_index: friendGroupIndex,
-                      initiator: attemptData.initiator || "",
-                      init_block:
-                        attemptData.init_block ?? attemptData.initBlock ?? 0,
-                      last_approval_block:
-                        attemptData.last_approval_block ??
-                        attemptData.lastApprovalBlock ??
-                        0,
-                      approvals: approvalCount,
-                    },
-                  });
-                }
-              }
-            }
-          }
-
-          setAttemptsOnAccount(attempts);
-        } else {
-          setAttemptsOnAccount([]);
+      if (recoveryApi?.providedBlockNumber) {
+        const blockResult = await recoveryApi.providedBlockNumber();
+        if (blockResult && !blockResult.isEmpty) {
+          setCurrentBlock(blockResult.toJSON() as number);
         }
+      } else {
+        const header = await api.rpc.chain.getHeader();
+        setCurrentBlock(header.number.toNumber());
+      }
+
+      if (!recoveryApi || !recoveryApi.attempts) {
+        setAttemptsOnAccount([]);
         return;
       }
 
-      // Use runtime API if available
+      // Use view function to get attempts
       const result = await recoveryApi.attempts(selectedAccount);
       if (result && !result.isEmpty) {
         const data = result.toJSON();
@@ -374,7 +261,7 @@ export default function SocialRecoverySetup() {
     } finally {
       setIsLoadingAttempts(false);
     }
-  }, [api, isConnected, selectedAccount, existingFriendGroups]);
+  }, [api, isConnected, selectedAccount]);
 
   // Fetch attempts when account or connection changes
   useEffect(() => {
