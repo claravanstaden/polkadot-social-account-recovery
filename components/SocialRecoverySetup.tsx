@@ -116,7 +116,7 @@ export default function SocialRecoverySetup() {
     }
   }, [wallet]);
 
-  // Fetch existing friend groups from chain using PAPI view functions
+  // Fetch existing friend groups from chain
   const fetchExistingFriendGroups = useCallback(async () => {
     if (!typedApi || !papiConnected || !selectedAccount) {
       setExistingFriendGroups(null);
@@ -126,13 +126,8 @@ export default function SocialRecoverySetup() {
     setIsLoadingExisting(true);
 
     try {
-      console.log("Fetching friend groups via PAPI for:", selectedAccount);
-
-      // Use PAPI view function: typedApi.view.Recovery.friend_groups(account)
       const result =
         await typedApi.view.Recovery.friend_groups(selectedAccount);
-
-      console.log("PAPI friendGroups result:", result);
 
       if (result && Array.isArray(result) && result.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +161,7 @@ export default function SocialRecoverySetup() {
     fetchExistingFriendGroups();
   }, [fetchExistingFriendGroups]);
 
-  // Fetch attempts on this account using PAPI view functions
+  // Fetch attempts on this account
   const fetchAttemptsOnAccount = useCallback(async () => {
     if (!typedApi || !papiConnected || !selectedAccount) {
       setAttemptsOnAccount([]);
@@ -176,7 +171,6 @@ export default function SocialRecoverySetup() {
     setIsLoadingAttempts(true);
 
     try {
-      // Get current block number using PAPI view function
       try {
         const blockResult =
           await typedApi.view.Recovery.provided_block_number();
@@ -191,7 +185,6 @@ export default function SocialRecoverySetup() {
         }
       }
 
-      // Use PAPI view function to get attempts
       const result = await typedApi.view.Recovery.attempts(selectedAccount);
 
       if (result && Array.isArray(result)) {

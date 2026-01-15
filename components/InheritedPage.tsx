@@ -77,7 +77,7 @@ export default function InheritedPage() {
 
   const selectedAccount = walletSelectedAccount?.address || "";
 
-  // Fetch inherited accounts using PAPI view functions
+  // Fetch inherited accounts
   const fetchInheritedAccounts = useCallback(async () => {
     if (!typedApi || !papiConnected || !selectedAccount) {
       setInheritedAccounts([]);
@@ -89,7 +89,6 @@ export default function InheritedPage() {
     try {
       let inheritedAddresses: string[] = [];
 
-      // Get all accounts this user has inherited using PAPI view function
       const inheritanceResult =
         await typedApi.view.Recovery.inheritance(selectedAccount);
       if (inheritanceResult && Array.isArray(inheritanceResult)) {
@@ -118,7 +117,6 @@ export default function InheritedPage() {
             maximumFractionDigits: 2,
           });
 
-          // Fetch friend groups using PAPI view function
           let friendGroups: FriendGroup[] = [];
           let inheritanceOrder = 0;
 
@@ -148,7 +146,6 @@ export default function InheritedPage() {
             }
           }
 
-          // Check for ongoing attempts using PAPI view function
           let hasOngoingAttempts = false;
           const attemptsResult = await typedApi.view.Recovery.attempts(address);
           if (attemptsResult && Array.isArray(attemptsResult)) {

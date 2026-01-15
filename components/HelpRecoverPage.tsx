@@ -88,7 +88,7 @@ export default function HelpRecoverPage() {
 
   const selectedAccount = walletSelectedAccount?.address || "";
 
-  // Fetch friend groups and attempts for the lost account using PAPI view functions
+  // Fetch friend groups and attempts for the lost account
   const fetchLostAccountData = useCallback(async () => {
     if (!typedApi || !papiConnected || !lostAccount) {
       setFriendGroups([]);
@@ -104,7 +104,6 @@ export default function HelpRecoverPage() {
     setIsLoading(true);
 
     try {
-      // Get current block number using PAPI view function
       try {
         const blockResult =
           await typedApi.view.Recovery.provided_block_number();
@@ -119,7 +118,6 @@ export default function HelpRecoverPage() {
         }
       }
 
-      // Fetch friend groups using PAPI view function
       let fetchedFriendGroups: FriendGroup[] = [];
       const fgResult = await typedApi.view.Recovery.friend_groups(lostAccount);
       if (fgResult && Array.isArray(fgResult) && fgResult.length > 0) {
@@ -140,7 +138,6 @@ export default function HelpRecoverPage() {
       }
       setFriendGroups(fetchedFriendGroups);
 
-      // Fetch current inheritor status using PAPI view function
       try {
         const inheritorResult =
           await typedApi.view.Recovery.inheritor(lostAccount);
@@ -175,7 +172,6 @@ export default function HelpRecoverPage() {
         });
       }
 
-      // Fetch attempts using PAPI view function
       try {
         const fetchedAttempts: AttemptWithGroup[] = [];
         const attemptsResult =
