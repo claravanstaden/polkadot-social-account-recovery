@@ -618,7 +618,7 @@ export default function SocialRecoverySetup() {
     // Sort friends alphabetically as required by the pallet
     // Use array index as inheritance_order (position in list = priority)
     // Convert deposit from human-readable to chain format (10 or 12 decimals)
-    const tokenDecimals = selectedNetwork.tokenDecimals;
+    const tokenDecimals = api.registry.chainDecimals[0];
     const friendGroupsData = friendGroups.map((group, index) => ({
       deposit: BigInt(
         Math.round(group.deposit * Math.pow(10, tokenDecimals)),
@@ -720,7 +720,6 @@ export default function SocialRecoverySetup() {
     wallet,
     walletSelectedAccount,
     friendGroups,
-    selectedNetwork.tokenDecimals,
     fetchExistingFriendGroups,
     showToast,
   ]);

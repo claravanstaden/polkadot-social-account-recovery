@@ -121,6 +121,7 @@ export default function InheritedPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const apiQuery = api.query as any;
       const recoveryQuery = apiQuery.recovery || apiQuery.socialRecovery || apiQuery.social_recovery;
+      const tokenDecimals = api.registry.chainDecimals[0];
 
       for (const address of inheritedAddresses) {
         try {
@@ -128,8 +129,10 @@ export default function InheritedPage() {
           const accountInfo = await api.query.system.account(address);
           const data = accountInfo.toJSON() as any;
           const freeBalance = BigInt(data?.data?.free || 0);
-          const decimals = selectedNetwork.tokenDecimals;
-          const balanceFormatted = (Number(freeBalance) / Math.pow(10, decimals)).toFixed(2);
+          const balanceFormatted = (Number(freeBalance) / Math.pow(10, tokenDecimals)).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
 
           // Fetch inheritance order from Inheritor storage
           let inheritanceOrder = 0;
