@@ -655,7 +655,7 @@ export default function InheritedPage() {
       </div>
 
       {/* Transfer Form */}
-      {inheritedAccounts.length > 0 && (
+      {inheritedAccounts.length > 0 && selectedInherited && (
         <>
           <div className="section-divider" />
           <div className="rounded-xl p-6 bg-[var(--background)]">
@@ -663,58 +663,52 @@ export default function InheritedPage() {
               Withdraw from Inherited Account
             </h3>
 
-            {!selectedInherited ? (
-              <p className="text-sm text-[var(--foreground-muted)] text-center py-6">
-                Select an inherited account above to withdraw funds
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
-                    Recipient Address
-                    <Tooltip content="The account that will receive the transferable DOT." />
-                  </label>
-                  <input
-                    type="text"
-                    value={transferRecipient}
-                    onChange={(e) => setTransferRecipient(e.target.value)}
-                    placeholder="Enter recipient address..."
-                    className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
-                  />
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
+                  Recipient Address
+                  <Tooltip content="The account that will receive the transferable DOT." />
+                </label>
+                <input
+                  type="text"
+                  value={transferRecipient}
+                  onChange={(e) => setTransferRecipient(e.target.value)}
+                  placeholder="Enter recipient address..."
+                  className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
+                />
+              </div>
 
-                <div className="alert alert-info text-sm">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="font-medium">Withdrawing transferable DOT</p>
-                      <p className="opacity-90 mt-1">
-                        This will withdraw all transferable DOT from the inherited account. There may be tokens, staked, vested or other funds remaining.
-                      </p>
-                    </div>
+              <div className="alert alert-info text-sm">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-medium">Withdrawing transferable DOT</p>
+                    <p className="opacity-90 mt-1">
+                      This will withdraw all transferable DOT from the inherited account. There may be tokens, staked, vested or other funds remaining.
+                    </p>
                   </div>
                 </div>
-
-                <button
-                  onClick={handleTransfer}
-                  disabled={
-                    !transferRecipient ||
-                    txStatus === "signing" ||
-                    txStatus === "submitting" ||
-                    txStatus === "in_block"
-                  }
-                  className="w-full py-3 px-4 bg-[var(--polkadot-accent)] text-white font-semibold rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
-                >
-                  {txStatus === "signing" && "Waiting for signature..."}
-                  {txStatus === "submitting" && "Submitting transaction..."}
-                  {txStatus === "in_block" && "Waiting for finalization..."}
-                  {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
-                    "Withdraw All Funds"}
-                </button>
               </div>
-            )}
+
+              <button
+                onClick={handleTransfer}
+                disabled={
+                  !transferRecipient ||
+                  txStatus === "signing" ||
+                  txStatus === "submitting" ||
+                  txStatus === "in_block"
+                }
+                className="w-full py-3 px-4 bg-[var(--polkadot-accent)] text-white font-semibold rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
+              >
+                {txStatus === "signing" && "Waiting for signature..."}
+                {txStatus === "submitting" && "Submitting transaction..."}
+                {txStatus === "in_block" && "Waiting for finalization..."}
+                {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
+                  "Withdraw All Funds"}
+              </button>
+            </div>
           </div>
         </>
       )}
