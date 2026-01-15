@@ -122,6 +122,7 @@ export default function InheritedPage() {
       const apiQuery = api.query as any;
       const recoveryQuery = apiQuery.recovery || apiQuery.socialRecovery || apiQuery.social_recovery;
       const tokenDecimals = api.registry.chainDecimals[0];
+      const tokenSymbol = api.registry.chainTokens[0];
 
       for (const address of inheritedAddresses) {
         try {
