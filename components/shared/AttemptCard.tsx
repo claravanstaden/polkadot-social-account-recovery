@@ -70,8 +70,7 @@ export default function AttemptCard({
   }, [attempt.init_block, friendGroup.inheritance_delay, currentBlock]);
 
   const blocksUntilCancelable = useMemo(() => {
-    const cancelableAt =
-      attempt.last_approval_block + friendGroup.cancel_delay;
+    const cancelableAt = attempt.last_approval_block + friendGroup.cancel_delay;
     return Math.max(0, cancelableAt - currentBlock);
   }, [attempt.last_approval_block, friendGroup.cancel_delay, currentBlock]);
 

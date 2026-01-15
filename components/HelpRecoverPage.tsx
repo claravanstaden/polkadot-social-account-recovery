@@ -8,7 +8,12 @@ import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import AttemptCard from "./shared/AttemptCard";
 import Tooltip from "./Tooltip";
 import { useToast } from "./Toast";
-import { TxStatus, TxStatusEnum, getTxButtonLabel, getTxStatusMessage } from "@/lib/txStatus";
+import {
+  TxStatus,
+  TxStatusEnum,
+  getTxButtonLabel,
+  getTxStatusMessage,
+} from "@/lib/txStatus";
 
 interface FriendGroup {
   friends: string[];
@@ -86,7 +91,11 @@ export default function HelpRecoverPage() {
     if (!api || !isConnected || !lostAccount) {
       setFriendGroups([]);
       setAttempts([]);
-      setRecoveryStatus({ isRecovered: false, currentInheritor: null, currentInheritanceOrder: null });
+      setRecoveryStatus({
+        isRecovered: false,
+        currentInheritor: null,
+        currentInheritanceOrder: null,
+      });
       return;
     }
 
@@ -173,8 +182,10 @@ export default function HelpRecoverPage() {
             friends: group.friends || [],
             friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
             inheritor: group.inheritor || "",
-            inheritance_delay: group.inheritance_delay ?? group.inheritanceDelay ?? 0,
-            inheritance_order: group.inheritance_order ?? group.inheritanceOrder ?? 0,
+            inheritance_delay:
+              group.inheritance_delay ?? group.inheritanceDelay ?? 0,
+            inheritance_order:
+              group.inheritance_order ?? group.inheritanceOrder ?? 0,
             cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
             deposit: group.deposit ?? 0,
           }));
@@ -190,20 +201,32 @@ export default function HelpRecoverPage() {
           if (inheritorData && !inheritorData.isEmpty) {
             const iData = inheritorData.toJSON();
             // Data structure: [InheritanceOrder, AccountId, Ticket]
-            const order = Array.isArray(iData) ? iData[0] : (iData?.inheritance_order ?? 0);
-            const inheritor = Array.isArray(iData) ? iData[1] : iData?.inheritor;
+            const order = Array.isArray(iData)
+              ? iData[0]
+              : (iData?.inheritance_order ?? 0);
+            const inheritor = Array.isArray(iData)
+              ? iData[1]
+              : iData?.inheritor;
             setRecoveryStatus({
               isRecovered: true,
               currentInheritor: inheritor,
               currentInheritanceOrder: order,
             });
           } else {
-            setRecoveryStatus({ isRecovered: false, currentInheritor: null, currentInheritanceOrder: null });
+            setRecoveryStatus({
+              isRecovered: false,
+              currentInheritor: null,
+              currentInheritanceOrder: null,
+            });
           }
         }
       } catch (inheritorErr) {
         console.warn("Could not fetch inheritor:", inheritorErr);
-        setRecoveryStatus({ isRecovered: false, currentInheritor: null, currentInheritanceOrder: null });
+        setRecoveryStatus({
+          isRecovered: false,
+          currentInheritor: null,
+          currentInheritanceOrder: null,
+        });
       }
 
       // Fetch attempts (in separate try-catch so it doesn't fail everything)
@@ -218,7 +241,10 @@ export default function HelpRecoverPage() {
               const attemptData = Array.isArray(data) ? data[0] : data;
 
               if (attemptData) {
-                const friendGroupIndex = attemptData.friend_group_index ?? attemptData.friendGroupIndex ?? 0;
+                const friendGroupIndex =
+                  attemptData.friend_group_index ??
+                  attemptData.friendGroupIndex ??
+                  0;
                 const friendGroup = fetchedFriendGroups[friendGroupIndex];
 
                 if (friendGroup) {
@@ -228,7 +254,11 @@ export default function HelpRecoverPage() {
                   const approvals = attemptData.approvals;
 
                   if (Array.isArray(approvals)) {
-                    for (let wordIdx = 0; wordIdx < approvals.length; wordIdx++) {
+                    for (
+                      let wordIdx = 0;
+                      wordIdx < approvals.length;
+                      wordIdx++
+                    ) {
                       const word = approvals[wordIdx] >>> 0;
                       for (let bit = 0; bit < 16; bit++) {
                         if (word & (1 << bit)) {
@@ -237,7 +267,7 @@ export default function HelpRecoverPage() {
                         }
                       }
                     }
-                  } else if (typeof approvals === 'number') {
+                  } else if (typeof approvals === "number") {
                     const word = approvals >>> 0;
                     for (let bit = 0; bit < 32; bit++) {
                       if (word & (1 << bit)) {
@@ -252,8 +282,12 @@ export default function HelpRecoverPage() {
                     attempt: {
                       friend_group_index: friendGroupIndex,
                       initiator: attemptData.initiator || "",
-                      init_block: attemptData.init_block ?? attemptData.initBlock ?? 0,
-                      last_approval_block: attemptData.last_approval_block ?? attemptData.lastApprovalBlock ?? 0,
+                      init_block:
+                        attemptData.init_block ?? attemptData.initBlock ?? 0,
+                      last_approval_block:
+                        attemptData.last_approval_block ??
+                        attemptData.lastApprovalBlock ??
+                        0,
                       approvals: approvalCount,
                       voterIndices,
                     },
@@ -272,7 +306,10 @@ export default function HelpRecoverPage() {
       }
     } catch (err) {
       console.error("Error fetching lost account data:", err);
-      showToast("Failed to fetch account data. Please check the address.", "error");
+      showToast(
+        "Failed to fetch account data. Please check the address.",
+        "error",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -286,7 +323,10 @@ export default function HelpRecoverPage() {
   }, [lostAccount, fetchLostAccountData]);
 
   // Check if user has voted for an attempt
-  const hasUserVoted = (attempt: Attempt, friendGroup: FriendGroup): boolean => {
+  const hasUserVoted = (
+    attempt: Attempt,
+    friendGroup: FriendGroup,
+  ): boolean => {
     const friendIndex = friendGroup.friends.indexOf(selectedAccount);
     if (friendIndex === -1) return false;
     return attempt.voterIndices.includes(friendIndex);
@@ -298,13 +338,18 @@ export default function HelpRecoverPage() {
   };
 
   // Find attempt for a friend group
-  const getAttemptForGroup = (groupIndex: number): AttemptWithGroup | undefined => {
+  const getAttemptForGroup = (
+    groupIndex: number,
+  ): AttemptWithGroup | undefined => {
     return attempts.find((a) => a.attempt.friend_group_index === groupIndex);
   };
 
   // Check if a group can contest the current recovery
   const canGroupContest = (group: FriendGroup): boolean => {
-    if (!recoveryStatus.isRecovered || recoveryStatus.currentInheritanceOrder === null) {
+    if (
+      !recoveryStatus.isRecovered ||
+      recoveryStatus.currentInheritanceOrder === null
+    ) {
       return true; // Not recovered yet, can initiate
     }
     return group.inheritance_order < recoveryStatus.currentInheritanceOrder;
@@ -312,263 +357,358 @@ export default function HelpRecoverPage() {
 
   // Check if a group is blocked from recovering
   const isGroupBlocked = (group: FriendGroup): boolean => {
-    if (!recoveryStatus.isRecovered || recoveryStatus.currentInheritanceOrder === null) {
+    if (
+      !recoveryStatus.isRecovered ||
+      recoveryStatus.currentInheritanceOrder === null
+    ) {
       return false;
     }
     return group.inheritance_order >= recoveryStatus.currentInheritanceOrder;
   };
 
   // Handle initiate attempt
-  const handleInitiateAttempt = useCallback(async (friendGroupIndex: number) => {
-    if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
-
-    setTxHash(null);
-    setTxStatus(TxStatusEnum.SIGNING);
-
-    try {
-      const signer = wallet.signer;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-      if (!recoveryPallet?.initiateAttempt) {
-        showToast("initiateAttempt method not found in recovery pallet", "error");
-        setTxStatus(TxStatusEnum.ERROR);
+  const handleInitiateAttempt = useCallback(
+    async (friendGroupIndex: number) => {
+      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
         return;
-      }
 
-      const tx = recoveryPallet.initiateAttempt(lostAccount, friendGroupIndex);
-      setTxStatus(TxStatusEnum.SUBMITTING);
+      setTxHash(null);
+      setTxStatus(TxStatusEnum.SIGNING);
 
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
+      try {
+        const signer = wallet.signer;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const apiTx = api.tx as any;
+        const recoveryPallet =
+          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
+        if (!recoveryPallet?.initiateAttempt) {
+          showToast(
+            "initiateAttempt method not found in recovery pallet",
+            "error",
+          );
+          setTxStatus(TxStatusEnum.ERROR);
+          return;
+        }
 
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
+        const tx = recoveryPallet.initiateAttempt(
+          lostAccount,
+          friendGroupIndex,
+        );
+        setTxStatus(TxStatusEnum.SUBMITTING);
 
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(dispatchError.asModule);
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast("Recovery attempt initiated successfully!", "success");
-              fetchLostAccountData();
+        const unsub = await tx.signAndSend(
+          selectedAccount,
+          { signer },
+          (result: ISubmittableResult) => {
+            const { status, txHash: hash, dispatchError } = result;
+            setTxHash(hash.toHex());
+
+            if (status.isInBlock) {
+              setTxStatus(TxStatusEnum.IN_BLOCK);
             }
 
-            unsub();
-          }
-        },
-      );
-    } catch (err) {
-      console.error("Initiate attempt error:", err);
-      showToast(err instanceof Error ? err.message : "Failed to initiate attempt", "error");
-      setTxStatus(TxStatusEnum.ERROR);
-    }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
+            if (status.isFinalized) {
+              setTxStatus(TxStatusEnum.FINALIZED);
+
+              if (dispatchError) {
+                let errorMessage = "Transaction failed";
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(
+                    dispatchError.asModule,
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                } else {
+                  errorMessage = dispatchError.toString();
+                }
+                showToast(errorMessage, "error");
+                setTxStatus(TxStatusEnum.ERROR);
+              } else {
+                showToast(
+                  "Recovery attempt initiated successfully!",
+                  "success",
+                );
+                fetchLostAccountData();
+              }
+
+              unsub();
+            }
+          },
+        );
+      } catch (err) {
+        console.error("Initiate attempt error:", err);
+        showToast(
+          err instanceof Error ? err.message : "Failed to initiate attempt",
+          "error",
+        );
+        setTxStatus(TxStatusEnum.ERROR);
+      }
+    },
+    [
+      api,
+      isConnected,
+      wallet,
+      selectedAccount,
+      lostAccount,
+      fetchLostAccountData,
+      showToast,
+    ],
+  );
 
   // Handle approve attempt
-  const handleApproveAttempt = useCallback(async (friendGroupIndex: number) => {
-    if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
-
-    setTxHash(null);
-    setTxStatus(TxStatusEnum.SIGNING);
-
-    try {
-      const signer = wallet.signer;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-      if (!recoveryPallet?.approveAttempt) {
-        showToast("approveAttempt method not found in recovery pallet", "error");
-        setTxStatus(TxStatusEnum.ERROR);
+  const handleApproveAttempt = useCallback(
+    async (friendGroupIndex: number) => {
+      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
         return;
-      }
 
-      const tx = recoveryPallet.approveAttempt(lostAccount, friendGroupIndex);
-      setTxStatus(TxStatusEnum.SUBMITTING);
+      setTxHash(null);
+      setTxStatus(TxStatusEnum.SIGNING);
 
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
+      try {
+        const signer = wallet.signer;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const apiTx = api.tx as any;
+        const recoveryPallet =
+          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
+        if (!recoveryPallet?.approveAttempt) {
+          showToast(
+            "approveAttempt method not found in recovery pallet",
+            "error",
+          );
+          setTxStatus(TxStatusEnum.ERROR);
+          return;
+        }
 
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
+        const tx = recoveryPallet.approveAttempt(lostAccount, friendGroupIndex);
+        setTxStatus(TxStatusEnum.SUBMITTING);
 
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(dispatchError.asModule);
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast("Approval submitted successfully!", "success");
-              fetchLostAccountData();
+        const unsub = await tx.signAndSend(
+          selectedAccount,
+          { signer },
+          (result: ISubmittableResult) => {
+            const { status, txHash: hash, dispatchError } = result;
+            setTxHash(hash.toHex());
+
+            if (status.isInBlock) {
+              setTxStatus(TxStatusEnum.IN_BLOCK);
             }
 
-            unsub();
-          }
-        },
-      );
-    } catch (err) {
-      console.error("Approve attempt error:", err);
-      showToast(err instanceof Error ? err.message : "Failed to approve attempt", "error");
-      setTxStatus(TxStatusEnum.ERROR);
-    }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
+            if (status.isFinalized) {
+              setTxStatus(TxStatusEnum.FINALIZED);
+
+              if (dispatchError) {
+                let errorMessage = "Transaction failed";
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(
+                    dispatchError.asModule,
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                } else {
+                  errorMessage = dispatchError.toString();
+                }
+                showToast(errorMessage, "error");
+                setTxStatus(TxStatusEnum.ERROR);
+              } else {
+                showToast("Approval submitted successfully!", "success");
+                fetchLostAccountData();
+              }
+
+              unsub();
+            }
+          },
+        );
+      } catch (err) {
+        console.error("Approve attempt error:", err);
+        showToast(
+          err instanceof Error ? err.message : "Failed to approve attempt",
+          "error",
+        );
+        setTxStatus(TxStatusEnum.ERROR);
+      }
+    },
+    [
+      api,
+      isConnected,
+      wallet,
+      selectedAccount,
+      lostAccount,
+      fetchLostAccountData,
+      showToast,
+    ],
+  );
 
   // Handle finish attempt
-  const handleFinishAttempt = useCallback(async (attemptIndex: number) => {
-    if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
-
-    setTxHash(null);
-    setTxStatus(TxStatusEnum.SIGNING);
-
-    try {
-      const signer = wallet.signer;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-      if (!recoveryPallet?.finishAttempt) {
-        showToast("finishAttempt method not found in recovery pallet", "error");
-        setTxStatus(TxStatusEnum.ERROR);
+  const handleFinishAttempt = useCallback(
+    async (attemptIndex: number) => {
+      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
         return;
-      }
 
-      const tx = recoveryPallet.finishAttempt(lostAccount, attemptIndex);
-      setTxStatus(TxStatusEnum.SUBMITTING);
+      setTxHash(null);
+      setTxStatus(TxStatusEnum.SIGNING);
 
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
+      try {
+        const signer = wallet.signer;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const apiTx = api.tx as any;
+        const recoveryPallet =
+          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
+        if (!recoveryPallet?.finishAttempt) {
+          showToast(
+            "finishAttempt method not found in recovery pallet",
+            "error",
+          );
+          setTxStatus(TxStatusEnum.ERROR);
+          return;
+        }
 
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
+        const tx = recoveryPallet.finishAttempt(lostAccount, attemptIndex);
+        setTxStatus(TxStatusEnum.SUBMITTING);
 
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(dispatchError.asModule);
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast("Recovery completed! The inheritor now has access to the account.", "success");
-              fetchLostAccountData();
+        const unsub = await tx.signAndSend(
+          selectedAccount,
+          { signer },
+          (result: ISubmittableResult) => {
+            const { status, txHash: hash, dispatchError } = result;
+            setTxHash(hash.toHex());
+
+            if (status.isInBlock) {
+              setTxStatus(TxStatusEnum.IN_BLOCK);
             }
 
-            unsub();
-          }
-        },
-      );
-    } catch (err) {
-      console.error("Finish attempt error:", err);
-      showToast(err instanceof Error ? err.message : "Failed to finish attempt", "error");
-      setTxStatus(TxStatusEnum.ERROR);
-    }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
+            if (status.isFinalized) {
+              setTxStatus(TxStatusEnum.FINALIZED);
+
+              if (dispatchError) {
+                let errorMessage = "Transaction failed";
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(
+                    dispatchError.asModule,
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                } else {
+                  errorMessage = dispatchError.toString();
+                }
+                showToast(errorMessage, "error");
+                setTxStatus(TxStatusEnum.ERROR);
+              } else {
+                showToast(
+                  "Recovery completed! The inheritor now has access to the account.",
+                  "success",
+                );
+                fetchLostAccountData();
+              }
+
+              unsub();
+            }
+          },
+        );
+      } catch (err) {
+        console.error("Finish attempt error:", err);
+        showToast(
+          err instanceof Error ? err.message : "Failed to finish attempt",
+          "error",
+        );
+        setTxStatus(TxStatusEnum.ERROR);
+      }
+    },
+    [
+      api,
+      isConnected,
+      wallet,
+      selectedAccount,
+      lostAccount,
+      fetchLostAccountData,
+      showToast,
+    ],
+  );
 
   // Handle cancel attempt (as initiator)
-  const handleCancelAttempt = useCallback(async (attemptIndex: number) => {
-    if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
-
-    setTxHash(null);
-    setTxStatus(TxStatusEnum.SIGNING);
-
-    try {
-      const signer = wallet.signer;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-      if (!recoveryPallet?.cancelAttempt) {
-        showToast("cancelAttempt method not found in recovery pallet", "error");
-        setTxStatus(TxStatusEnum.ERROR);
+  const handleCancelAttempt = useCallback(
+    async (attemptIndex: number) => {
+      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
         return;
-      }
 
-      const tx = recoveryPallet.cancelAttempt(lostAccount, attemptIndex);
-      setTxStatus(TxStatusEnum.SUBMITTING);
+      setTxHash(null);
+      setTxStatus(TxStatusEnum.SIGNING);
 
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
+      try {
+        const signer = wallet.signer;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const apiTx = api.tx as any;
+        const recoveryPallet =
+          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
 
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
+        if (!recoveryPallet?.cancelAttempt) {
+          showToast(
+            "cancelAttempt method not found in recovery pallet",
+            "error",
+          );
+          setTxStatus(TxStatusEnum.ERROR);
+          return;
+        }
 
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
+        const tx = recoveryPallet.cancelAttempt(lostAccount, attemptIndex);
+        setTxStatus(TxStatusEnum.SUBMITTING);
 
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(dispatchError.asModule);
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast("Recovery attempt cancelled successfully!", "success");
-              fetchLostAccountData();
+        const unsub = await tx.signAndSend(
+          selectedAccount,
+          { signer },
+          (result: ISubmittableResult) => {
+            const { status, txHash: hash, dispatchError } = result;
+            setTxHash(hash.toHex());
+
+            if (status.isInBlock) {
+              setTxStatus(TxStatusEnum.IN_BLOCK);
             }
 
-            unsub();
-          }
-        },
-      );
-    } catch (err) {
-      console.error("Cancel attempt error:", err);
-      showToast(err instanceof Error ? err.message : "Failed to cancel attempt", "error");
-      setTxStatus(TxStatusEnum.ERROR);
-    }
-  }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
+            if (status.isFinalized) {
+              setTxStatus(TxStatusEnum.FINALIZED);
+
+              if (dispatchError) {
+                let errorMessage = "Transaction failed";
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(
+                    dispatchError.asModule,
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                } else {
+                  errorMessage = dispatchError.toString();
+                }
+                showToast(errorMessage, "error");
+                setTxStatus(TxStatusEnum.ERROR);
+              } else {
+                showToast(
+                  "Recovery attempt cancelled successfully!",
+                  "success",
+                );
+                fetchLostAccountData();
+              }
+
+              unsub();
+            }
+          },
+        );
+      } catch (err) {
+        console.error("Cancel attempt error:", err);
+        showToast(
+          err instanceof Error ? err.message : "Failed to cancel attempt",
+          "error",
+        );
+        setTxStatus(TxStatusEnum.ERROR);
+      }
+    },
+    [
+      api,
+      isConnected,
+      wallet,
+      selectedAccount,
+      lostAccount,
+      fetchLostAccountData,
+      showToast,
+    ],
+  );
 
   if (!wallet) {
     return (
@@ -667,32 +807,49 @@ export default function HelpRecoverPage() {
       </div>
 
       {/* Loading State */}
-      {isLoading && (
-        <div className="empty-state">
-          Loading account data...
-        </div>
-      )}
+      {isLoading && <div className="empty-state">Loading account data...</div>}
 
       {/* Recovery Status Banner */}
       {!isLoading && lostAccount && recoveryStatus.isRecovered && (
         <div className="mb-6 alert alert-success">
           <div className="flex items-start gap-3">
-            <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-6 h-6 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <div className="flex-1">
               <h4 className="font-semibold">Account Already Recovered</h4>
               <p className="text-sm opacity-90 mt-1">
-                This account has been recovered by a friend group with priority order {recoveryStatus.currentInheritanceOrder}.
+                This account has been recovered by a friend group with priority
+                order {recoveryStatus.currentInheritanceOrder}.
                 {recoveryStatus.currentInheritanceOrder === 0
                   ? " No other groups can contest."
                   : ` Friend groups with priority lower than ${recoveryStatus.currentInheritanceOrder} can still contest.`}
               </p>
               <div className="mt-2 p-2 bg-[var(--background)] rounded-lg">
-                <span className="text-xs text-[var(--foreground-muted)]">Current Inheritor:</span>
-                {getSubscanUrl(selectedNetwork.id, recoveryStatus.currentInheritor!) ? (
+                <span className="text-xs text-[var(--foreground-muted)]">
+                  Current Inheritor:
+                </span>
+                {getSubscanUrl(
+                  selectedNetwork.id,
+                  recoveryStatus.currentInheritor!,
+                ) ? (
                   <a
-                    href={getSubscanUrl(selectedNetwork.id, recoveryStatus.currentInheritor!)!}
+                    href={
+                      getSubscanUrl(
+                        selectedNetwork.id,
+                        recoveryStatus.currentInheritor!,
+                      )!
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block font-mono text-sm text-[var(--polkadot-accent)] hover:underline truncate"
@@ -718,14 +875,17 @@ export default function HelpRecoverPage() {
               Recovery Configuration
             </h3>
             <p className="text-sm text-[var(--foreground-muted)] mb-4">
-              {friendGroups.length} friend group{friendGroups.length !== 1 ? "s" : ""} configured for this account
+              {friendGroups.length} friend group
+              {friendGroups.length !== 1 ? "s" : ""} configured for this account
             </p>
           </div>
 
           {friendGroups.map((group, groupIndex) => {
             const existingAttempt = getAttemptForGroup(groupIndex);
             const userIsFriend = isUserFriend(group);
-            const userHasVoted = existingAttempt ? hasUserVoted(existingAttempt.attempt, group) : false;
+            const userHasVoted = existingAttempt
+              ? hasUserVoted(existingAttempt.attempt, group)
+              : false;
             const groupCanContest = canGroupContest(group);
             const groupIsBlocked = isGroupBlocked(group);
 
@@ -733,33 +893,45 @@ export default function HelpRecoverPage() {
               <div
                 key={groupIndex}
                 className={`rounded-xl p-5 bg-[var(--background)] ${
-                  groupIsBlocked && group.inheritance_order > recoveryStatus.currentInheritanceOrder! ? "opacity-60" : ""
+                  groupIsBlocked &&
+                  group.inheritance_order >
+                    recoveryStatus.currentInheritanceOrder!
+                    ? "opacity-60"
+                    : ""
                 }`}
               >
                 {/* Recovery Status Banner */}
-                {groupIsBlocked && group.inheritance_order === recoveryStatus.currentInheritanceOrder && (
-                  <div className="mb-4 alert alert-success">
-                    <p className="text-sm">
-                      This group has completed recovery of the account.
-                    </p>
-                  </div>
-                )}
-                {groupIsBlocked && group.inheritance_order > recoveryStatus.currentInheritanceOrder! && (
-                  <div className="mb-4 alert alert-error">
-                    <p className="text-sm">
-                      This group cannot recover. A higher priority group has already completed recovery.
-                    </p>
-                  </div>
-                )}
+                {groupIsBlocked &&
+                  group.inheritance_order ===
+                    recoveryStatus.currentInheritanceOrder && (
+                    <div className="mb-4 alert alert-success">
+                      <p className="text-sm">
+                        This group has completed recovery of the account.
+                      </p>
+                    </div>
+                  )}
+                {groupIsBlocked &&
+                  group.inheritance_order >
+                    recoveryStatus.currentInheritanceOrder! && (
+                    <div className="mb-4 alert alert-error">
+                      <p className="text-sm">
+                        This group cannot recover. A higher priority group has
+                        already completed recovery.
+                      </p>
+                    </div>
+                  )}
 
                 {/* Can Contest Banner */}
-                {groupCanContest && recoveryStatus.isRecovered && !groupIsBlocked && (
-                  <div className="mb-4 alert alert-warning">
-                    <p className="text-sm">
-                      This group has higher priority and can contest the current recovery.
-                    </p>
-                  </div>
-                )}
+                {groupCanContest &&
+                  recoveryStatus.isRecovered &&
+                  !groupIsBlocked && (
+                    <div className="mb-4 alert alert-warning">
+                      <p className="text-sm">
+                        This group has higher priority and can contest the
+                        current recovery.
+                      </p>
+                    </div>
+                  )}
 
                 {/* Group Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -783,44 +955,62 @@ export default function HelpRecoverPage() {
                         You are a friend
                       </span>
                     )}
-                    {groupIsBlocked && group.inheritance_order === recoveryStatus.currentInheritanceOrder && (
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success)] text-white">
-                        Recovered
-                      </span>
-                    )}
-                    {groupIsBlocked && group.inheritance_order > recoveryStatus.currentInheritanceOrder! && (
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--error-bg)] text-[var(--error)]">
-                        Blocked
-                      </span>
-                    )}
-                    {groupCanContest && recoveryStatus.isRecovered && !groupIsBlocked && (
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--warning)] text-white">
-                        Can Contest
-                      </span>
-                    )}
+                    {groupIsBlocked &&
+                      group.inheritance_order ===
+                        recoveryStatus.currentInheritanceOrder && (
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success)] text-white">
+                          Recovered
+                        </span>
+                      )}
+                    {groupIsBlocked &&
+                      group.inheritance_order >
+                        recoveryStatus.currentInheritanceOrder! && (
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--error-bg)] text-[var(--error)]">
+                          Blocked
+                        </span>
+                      )}
+                    {groupCanContest &&
+                      recoveryStatus.isRecovered &&
+                      !groupIsBlocked && (
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--warning)] text-white">
+                          Can Contest
+                        </span>
+                      )}
                   </div>
                 </div>
 
                 {/* Group Details */}
                 <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-sm mb-4">
                   <div>
-                    <span className="text-[var(--foreground-muted)]">Threshold</span>
+                    <span className="text-[var(--foreground-muted)]">
+                      Threshold
+                    </span>
                     <p className="text-[var(--foreground)]">
                       {group.friends_needed} of {group.friends.length}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[var(--foreground-muted)]">Inheritance Delay</span>
-                    <p className="text-[var(--foreground)]">{group.inheritance_delay} blocks</p>
+                    <span className="text-[var(--foreground-muted)]">
+                      Inheritance Delay
+                    </span>
+                    <p className="text-[var(--foreground)]">
+                      {group.inheritance_delay} blocks
+                    </p>
                   </div>
                   <div>
-                    <span className="text-[var(--foreground-muted)]">Cancel Delay</span>
-                    <p className="text-[var(--foreground)]">{group.cancel_delay} blocks</p>
+                    <span className="text-[var(--foreground-muted)]">
+                      Cancel Delay
+                    </span>
+                    <p className="text-[var(--foreground)]">
+                      {group.cancel_delay} blocks
+                    </p>
                   </div>
                 </div>
 
                 <div className="text-sm mb-4">
-                  <span className="text-[var(--foreground-muted)]">Inheritor</span>
+                  <span className="text-[var(--foreground-muted)]">
+                    Inheritor
+                  </span>
                   {getSubscanUrl(selectedNetwork.id, group.inheritor) ? (
                     <a
                       href={getSubscanUrl(selectedNetwork.id, group.inheritor)!}
@@ -840,11 +1030,15 @@ export default function HelpRecoverPage() {
                 {/* Friends List */}
                 <details className="text-sm mb-4">
                   <summary className="text-[var(--foreground-muted)] cursor-pointer hover:text-[var(--foreground)]">
-                    {group.friends.length} friend{group.friends.length !== 1 ? "s" : ""}
+                    {group.friends.length} friend
+                    {group.friends.length !== 1 ? "s" : ""}
                   </summary>
                   <ul className="mt-2 space-y-1">
                     {group.friends.map((friend, i) => (
-                      <li key={i} className="font-mono text-xs truncate flex items-center gap-2">
+                      <li
+                        key={i}
+                        className="font-mono text-xs truncate flex items-center gap-2"
+                      >
                         {friend === selectedAccount && (
                           <span className="text-[var(--success)]">(You)</span>
                         )}
@@ -858,7 +1052,9 @@ export default function HelpRecoverPage() {
                             {friend}
                           </a>
                         ) : (
-                          <span className="text-[var(--foreground-muted)]">{friend}</span>
+                          <span className="text-[var(--foreground-muted)]">
+                            {friend}
+                          </span>
                         )}
                       </li>
                     ))}
@@ -875,15 +1071,35 @@ export default function HelpRecoverPage() {
                     groupIndex={groupIndex}
                     isLostAccount={false}
                     hasVoted={userHasVoted}
-                    onApprove={userIsFriend && !userHasVoted && !groupIsBlocked ? () => handleApproveAttempt(groupIndex) : undefined}
-                    onFinish={!groupIsBlocked ? () => handleFinishAttempt(groupIndex) : undefined}
-                    onCancel={existingAttempt.attempt.initiator === selectedAccount ? () => handleCancelAttempt(groupIndex) : undefined}
-                    isLoading={txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK}
+                    onApprove={
+                      userIsFriend && !userHasVoted && !groupIsBlocked
+                        ? () => handleApproveAttempt(groupIndex)
+                        : undefined
+                    }
+                    onFinish={
+                      !groupIsBlocked
+                        ? () => handleFinishAttempt(groupIndex)
+                        : undefined
+                    }
+                    onCancel={
+                      existingAttempt.attempt.initiator === selectedAccount
+                        ? () => handleCancelAttempt(groupIndex)
+                        : undefined
+                    }
+                    isLoading={
+                      txStatus === TxStatusEnum.SIGNING ||
+                      txStatus === TxStatusEnum.SUBMITTING ||
+                      txStatus === TxStatusEnum.IN_BLOCK
+                    }
                   />
                 ) : userIsFriend && !groupIsBlocked ? (
                   <button
                     onClick={() => handleInitiateAttempt(groupIndex)}
-                    disabled={txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK}
+                    disabled={
+                      txStatus === TxStatusEnum.SIGNING ||
+                      txStatus === TxStatusEnum.SUBMITTING ||
+                      txStatus === TxStatusEnum.IN_BLOCK
+                    }
                     className={`w-full py-3 px-4 font-medium rounded-lg transition-colors ${
                       groupCanContest && recoveryStatus.isRecovered
                         ? "bg-[var(--warning)] text-white hover:opacity-90"
@@ -906,17 +1122,22 @@ export default function HelpRecoverPage() {
       )}
 
       {/* No Configuration Found */}
-      {!isLoading && lostAccount && lostAccount.length === 48 && friendGroups.length === 0 && (
-        <div className="empty-state">
-          No recovery configuration found for this account.
-        </div>
-      )}
+      {!isLoading &&
+        lostAccount &&
+        lostAccount.length === 48 &&
+        friendGroups.length === 0 && (
+          <div className="empty-state">
+            No recovery configuration found for this account.
+          </div>
+        )}
 
       {/* Transaction Status */}
       {txStatus !== TxStatusEnum.IDLE && txStatus !== TxStatusEnum.ERROR && (
         <div className="mt-6 alert alert-info">
           <div className="flex items-center gap-2">
-            {(txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK) && (
+            {(txStatus === TxStatusEnum.SIGNING ||
+              txStatus === TxStatusEnum.SUBMITTING ||
+              txStatus === TxStatusEnum.IN_BLOCK) && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
@@ -934,9 +1155,7 @@ export default function HelpRecoverPage() {
                 />
               </svg>
             )}
-            <span className="text-sm">
-              {getTxStatusMessage(txStatus)}
-            </span>
+            <span className="text-sm">{getTxStatusMessage(txStatus)}</span>
           </div>
           {txHash && (
             <p className="mt-2 text-xs font-mono opacity-75 break-all">
@@ -945,7 +1164,6 @@ export default function HelpRecoverPage() {
           )}
         </div>
       )}
-
     </div>
   );
 }

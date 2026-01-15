@@ -7,12 +7,15 @@ export const TxStatusEnum = {
   ERROR: "error",
 } as const;
 
-export type TxStatus = typeof TxStatusEnum[keyof typeof TxStatusEnum];
+export type TxStatus = (typeof TxStatusEnum)[keyof typeof TxStatusEnum];
 
 /**
  * Get button label text for transaction status
  */
-export function getTxButtonLabel(status: TxStatus, defaultLabel: string): string {
+export function getTxButtonLabel(
+  status: TxStatus,
+  defaultLabel: string,
+): string {
   switch (status) {
     case TxStatusEnum.SIGNING:
       return "Waiting for signature...";

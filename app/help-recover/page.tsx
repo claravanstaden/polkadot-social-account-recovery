@@ -9,10 +9,9 @@ const PolkadotWalletDialog = dynamic(
   { ssr: false },
 );
 
-const HelpRecoverPage = dynamic(
-  () => import("@/components/HelpRecoverPage"),
-  { ssr: false },
-);
+const HelpRecoverPage = dynamic(() => import("@/components/HelpRecoverPage"), {
+  ssr: false,
+});
 
 export default function HelpRecover() {
   const { selectedNetwork } = useNetwork();

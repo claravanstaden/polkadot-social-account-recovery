@@ -9,10 +9,9 @@ const PolkadotWalletDialog = dynamic(
   { ssr: false },
 );
 
-const InheritedPage = dynamic(
-  () => import("@/components/InheritedPage"),
-  { ssr: false },
-);
+const InheritedPage = dynamic(() => import("@/components/InheritedPage"), {
+  ssr: false,
+});
 
 export default function Inherited() {
   const { selectedNetwork } = useNetwork();
