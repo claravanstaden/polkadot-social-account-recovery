@@ -8,14 +8,7 @@ import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import AttemptCard from "./shared/AttemptCard";
 import Tooltip from "./Tooltip";
 import { useToast } from "./Toast";
-
-type TxStatus =
-  | "idle"
-  | "signing"
-  | "submitting"
-  | "in_block"
-  | "finalized"
-  | "error";
+import { TxStatus, TxStatusEnum, getTxButtonLabel, getTxStatusMessage } from "@/lib/txStatus";
 
 interface FriendGroup {
   friends: string[];
@@ -71,7 +64,7 @@ export default function HelpRecoverPage() {
   } = usePolkadotWallet();
   const { showToast } = useToast();
 
-  const [txStatus, setTxStatus] = useState<TxStatus>("idle");
+  const [txStatus, setTxStatus] = useState<TxStatus>(TxStatusEnum.IDLE);
   const [txHash, setTxHash] = useState<string | null>(null);
 
   // Lost account to help recover
@@ -330,7 +323,7 @@ export default function HelpRecoverPage() {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
     setTxHash(null);
-    setTxStatus("signing");
+    setTxStatus(TxStatusEnum.SIGNING);
 
     try {
       const signer = wallet.signer;
@@ -341,12 +334,12 @@ export default function HelpRecoverPage() {
 
       if (!recoveryPallet?.initiateAttempt) {
         showToast("initiateAttempt method not found in recovery pallet", "error");
-        setTxStatus("error");
+        setTxStatus(TxStatusEnum.ERROR);
         return;
       }
 
       const tx = recoveryPallet.initiateAttempt(lostAccount, friendGroupIndex);
-      setTxStatus("submitting");
+      setTxStatus(TxStatusEnum.SUBMITTING);
 
       const unsub = await tx.signAndSend(
         selectedAccount,
@@ -356,11 +349,11 @@ export default function HelpRecoverPage() {
           setTxHash(hash.toHex());
 
           if (status.isInBlock) {
-            setTxStatus("in_block");
+            setTxStatus(TxStatusEnum.IN_BLOCK);
           }
 
           if (status.isFinalized) {
-            setTxStatus("finalized");
+            setTxStatus(TxStatusEnum.FINALIZED);
 
             if (dispatchError) {
               let errorMessage = "Transaction failed";
@@ -371,7 +364,7 @@ export default function HelpRecoverPage() {
                 errorMessage = dispatchError.toString();
               }
               showToast(errorMessage, "error");
-              setTxStatus("error");
+              setTxStatus(TxStatusEnum.ERROR);
             } else {
               showToast("Recovery attempt initiated successfully!", "success");
               fetchLostAccountData();
@@ -384,7 +377,7 @@ export default function HelpRecoverPage() {
     } catch (err) {
       console.error("Initiate attempt error:", err);
       showToast(err instanceof Error ? err.message : "Failed to initiate attempt", "error");
-      setTxStatus("error");
+      setTxStatus(TxStatusEnum.ERROR);
     }
   }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
@@ -393,7 +386,7 @@ export default function HelpRecoverPage() {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
     setTxHash(null);
-    setTxStatus("signing");
+    setTxStatus(TxStatusEnum.SIGNING);
 
     try {
       const signer = wallet.signer;
@@ -404,12 +397,12 @@ export default function HelpRecoverPage() {
 
       if (!recoveryPallet?.approveAttempt) {
         showToast("approveAttempt method not found in recovery pallet", "error");
-        setTxStatus("error");
+        setTxStatus(TxStatusEnum.ERROR);
         return;
       }
 
       const tx = recoveryPallet.approveAttempt(lostAccount, friendGroupIndex);
-      setTxStatus("submitting");
+      setTxStatus(TxStatusEnum.SUBMITTING);
 
       const unsub = await tx.signAndSend(
         selectedAccount,
@@ -419,11 +412,11 @@ export default function HelpRecoverPage() {
           setTxHash(hash.toHex());
 
           if (status.isInBlock) {
-            setTxStatus("in_block");
+            setTxStatus(TxStatusEnum.IN_BLOCK);
           }
 
           if (status.isFinalized) {
-            setTxStatus("finalized");
+            setTxStatus(TxStatusEnum.FINALIZED);
 
             if (dispatchError) {
               let errorMessage = "Transaction failed";
@@ -434,7 +427,7 @@ export default function HelpRecoverPage() {
                 errorMessage = dispatchError.toString();
               }
               showToast(errorMessage, "error");
-              setTxStatus("error");
+              setTxStatus(TxStatusEnum.ERROR);
             } else {
               showToast("Approval submitted successfully!", "success");
               fetchLostAccountData();
@@ -447,7 +440,7 @@ export default function HelpRecoverPage() {
     } catch (err) {
       console.error("Approve attempt error:", err);
       showToast(err instanceof Error ? err.message : "Failed to approve attempt", "error");
-      setTxStatus("error");
+      setTxStatus(TxStatusEnum.ERROR);
     }
   }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
@@ -456,7 +449,7 @@ export default function HelpRecoverPage() {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
     setTxHash(null);
-    setTxStatus("signing");
+    setTxStatus(TxStatusEnum.SIGNING);
 
     try {
       const signer = wallet.signer;
@@ -467,12 +460,12 @@ export default function HelpRecoverPage() {
 
       if (!recoveryPallet?.finishAttempt) {
         showToast("finishAttempt method not found in recovery pallet", "error");
-        setTxStatus("error");
+        setTxStatus(TxStatusEnum.ERROR);
         return;
       }
 
       const tx = recoveryPallet.finishAttempt(lostAccount, attemptIndex);
-      setTxStatus("submitting");
+      setTxStatus(TxStatusEnum.SUBMITTING);
 
       const unsub = await tx.signAndSend(
         selectedAccount,
@@ -482,11 +475,11 @@ export default function HelpRecoverPage() {
           setTxHash(hash.toHex());
 
           if (status.isInBlock) {
-            setTxStatus("in_block");
+            setTxStatus(TxStatusEnum.IN_BLOCK);
           }
 
           if (status.isFinalized) {
-            setTxStatus("finalized");
+            setTxStatus(TxStatusEnum.FINALIZED);
 
             if (dispatchError) {
               let errorMessage = "Transaction failed";
@@ -497,7 +490,7 @@ export default function HelpRecoverPage() {
                 errorMessage = dispatchError.toString();
               }
               showToast(errorMessage, "error");
-              setTxStatus("error");
+              setTxStatus(TxStatusEnum.ERROR);
             } else {
               showToast("Recovery completed! The inheritor now has access to the account.", "success");
               fetchLostAccountData();
@@ -510,7 +503,7 @@ export default function HelpRecoverPage() {
     } catch (err) {
       console.error("Finish attempt error:", err);
       showToast(err instanceof Error ? err.message : "Failed to finish attempt", "error");
-      setTxStatus("error");
+      setTxStatus(TxStatusEnum.ERROR);
     }
   }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
@@ -519,7 +512,7 @@ export default function HelpRecoverPage() {
     if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount) return;
 
     setTxHash(null);
-    setTxStatus("signing");
+    setTxStatus(TxStatusEnum.SIGNING);
 
     try {
       const signer = wallet.signer;
@@ -530,12 +523,12 @@ export default function HelpRecoverPage() {
 
       if (!recoveryPallet?.cancelAttempt) {
         showToast("cancelAttempt method not found in recovery pallet", "error");
-        setTxStatus("error");
+        setTxStatus(TxStatusEnum.ERROR);
         return;
       }
 
       const tx = recoveryPallet.cancelAttempt(lostAccount, attemptIndex);
-      setTxStatus("submitting");
+      setTxStatus(TxStatusEnum.SUBMITTING);
 
       const unsub = await tx.signAndSend(
         selectedAccount,
@@ -545,11 +538,11 @@ export default function HelpRecoverPage() {
           setTxHash(hash.toHex());
 
           if (status.isInBlock) {
-            setTxStatus("in_block");
+            setTxStatus(TxStatusEnum.IN_BLOCK);
           }
 
           if (status.isFinalized) {
-            setTxStatus("finalized");
+            setTxStatus(TxStatusEnum.FINALIZED);
 
             if (dispatchError) {
               let errorMessage = "Transaction failed";
@@ -560,7 +553,7 @@ export default function HelpRecoverPage() {
                 errorMessage = dispatchError.toString();
               }
               showToast(errorMessage, "error");
-              setTxStatus("error");
+              setTxStatus(TxStatusEnum.ERROR);
             } else {
               showToast("Recovery attempt cancelled successfully!", "success");
               fetchLostAccountData();
@@ -573,7 +566,7 @@ export default function HelpRecoverPage() {
     } catch (err) {
       console.error("Cancel attempt error:", err);
       showToast(err instanceof Error ? err.message : "Failed to cancel attempt", "error");
-      setTxStatus("error");
+      setTxStatus(TxStatusEnum.ERROR);
     }
   }, [api, isConnected, wallet, selectedAccount, lostAccount, fetchLostAccountData, showToast]);
 
@@ -880,12 +873,12 @@ export default function HelpRecoverPage() {
                     onApprove={userIsFriend && !userHasVoted && !groupIsBlocked ? () => handleApproveAttempt(groupIndex) : undefined}
                     onFinish={!groupIsBlocked ? () => handleFinishAttempt(groupIndex) : undefined}
                     onCancel={existingAttempt.attempt.initiator === selectedAccount ? () => handleCancelAttempt(groupIndex) : undefined}
-                    isLoading={txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
+                    isLoading={txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK}
                   />
                 ) : userIsFriend && !groupIsBlocked ? (
                   <button
                     onClick={() => handleInitiateAttempt(groupIndex)}
-                    disabled={txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
+                    disabled={txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK}
                     className={`w-full py-3 px-4 font-medium rounded-lg transition-colors ${
                       groupCanContest && recoveryStatus.isRecovered
                         ? "bg-[var(--warning)] text-white hover:opacity-90"
@@ -919,10 +912,10 @@ export default function HelpRecoverPage() {
       )}
 
       {/* Transaction Status */}
-      {txStatus !== "idle" && txStatus !== "error" && (
+      {txStatus !== TxStatusEnum.IDLE && txStatus !== TxStatusEnum.ERROR && (
         <div className="mt-6 alert alert-info">
           <div className="flex items-center gap-2">
-            {(txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block") && (
+            {(txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK) && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
@@ -941,10 +934,7 @@ export default function HelpRecoverPage() {
               </svg>
             )}
             <span className="text-sm">
-              {txStatus === "signing" && "Please sign the transaction in your wallet..."}
-              {txStatus === "submitting" && "Submitting transaction to the network..."}
-              {txStatus === "in_block" && "Transaction included in block, waiting for finalization..."}
-              {txStatus === "finalized" && "Transaction finalized!"}
+              {getTxStatusMessage(txStatus)}
             </span>
           </div>
           {txHash && (
