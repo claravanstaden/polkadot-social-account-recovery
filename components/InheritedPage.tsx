@@ -71,7 +71,6 @@ export default function InheritedPage() {
   // Transfer form state
   const [selectedInherited, setSelectedInherited] = useState<string>("");
   const [transferRecipient, setTransferRecipient] = useState<string>("");
-  const [transferAmount, setTransferAmount] = useState<string>("");
 
   const selectedAccount = walletSelectedAccount?.address || "";
 
@@ -135,7 +134,9 @@ export default function InheritedPage() {
           const accountInfo = await api.query.system.account(address);
           const data = accountInfo.toJSON() as any;
           const freeBalance = BigInt(data?.data?.free || 0);
-          const decimals = selectedNetwork.tokenDecimals;
+          // Get decimals from chain metadata (fallback to network config)
+          const decimals = api.registry.chainDecimals?.[0] ?? selectedNetwork.tokenDecimals;
+          const tokenSymbol = api.registry.chainTokens?.[0] ?? selectedNetwork.tokenSymbol;
           const balanceFormatted = (Number(freeBalance) / Math.pow(10, decimals)).toFixed(4);
 
           // Fetch inheritance order from Inheritor storage
@@ -185,7 +186,7 @@ export default function InheritedPage() {
 
           accountsWithBalances.push({
             address,
-            balance: `${balanceFormatted} ${selectedNetwork.tokenSymbol}`,
+            balance: `${balanceFormatted} ${tokenSymbol}`,
             balanceRaw: freeBalance,
             inheritanceOrder,
             friendGroups,
@@ -222,17 +223,11 @@ export default function InheritedPage() {
     fetchInheritedAccounts();
   }, [fetchInheritedAccounts]);
 
-  // Handle transfer from inherited account
-  const handleTransfer = useCallback(async () => {
+  // Handle transfer all from inherited account
+  const handleTransferAll = useCallback(async () => {
     if (!api || !isConnected || !wallet || !selectedAccount) return;
-    if (!selectedInherited || !transferRecipient || !transferAmount) {
-      showToast("Please fill in all transfer fields", "error");
-      return;
-    }
-
-    const amount = parseFloat(transferAmount);
-    if (isNaN(amount) || amount <= 0) {
-      showToast("Please enter a valid transfer amount", "error");
+    if (!selectedInherited || !transferRecipient) {
+      showToast("Please select an account and enter a recipient address", "error");
       return;
     }
 
@@ -252,15 +247,11 @@ export default function InheritedPage() {
         return;
       }
 
-      // Convert amount to chain format
-      const decimals = selectedNetwork.tokenDecimals;
-      const amountRaw = BigInt(Math.round(amount * Math.pow(10, decimals)));
-
-      // Create the inner transfer call
-      const transferCall = api.tx.balances.transferKeepAlive(transferRecipient, amountRaw);
+      // Create the inner transferAll call (keepAlive = false to transfer everything)
+      const transferAllCall = api.tx.balances.transferAll(transferRecipient, false);
 
       // Wrap it with controlInheritedAccount
-      const tx = recoveryPallet.controlInheritedAccount(selectedInherited, transferCall);
+      const tx = recoveryPallet.controlInheritedAccount(selectedInherited, transferAllCall);
       setTxStatus("submitting");
 
       const unsub = await tx.signAndSend(
@@ -288,8 +279,7 @@ export default function InheritedPage() {
               showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              showToast(`Successfully transferred ${transferAmount} ${selectedNetwork.tokenSymbol}!`, "success");
-              setTransferAmount("");
+              showToast("Successfully transferred all funds!", "success");
               setTransferRecipient("");
               fetchInheritedAccounts();
             }
@@ -303,7 +293,7 @@ export default function InheritedPage() {
       showToast(err instanceof Error ? err.message : "Failed to transfer", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, transferAmount, selectedNetwork, fetchInheritedAccounts, showToast]);
+  }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, fetchInheritedAccounts, showToast]);
 
   // Handle clearing friend groups to prevent future contests
   const handleClearFriendGroups = useCallback(async (inheritedAddress: string) => {
@@ -689,13 +679,16 @@ export default function InheritedPage() {
                     <p className="font-mono text-sm text-[var(--foreground)] truncate">
                       {selectedInherited}
                     </p>
+                    <p className="text-sm text-[var(--foreground-muted)] mt-1">
+                      Balance: {inheritedAccounts.find(a => a.address === selectedInherited)?.balance || "Unknown"}
+                    </p>
                   </div>
                 </div>
 
                 <div>
                   <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
                     Recipient Address
-                    <Tooltip content="The account that will receive the transferred tokens" />
+                    <Tooltip content="The account that will receive all tokens from the inherited account" />
                   </label>
                   <input
                     type="text"
@@ -706,36 +699,10 @@ export default function InheritedPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
-                    Amount
-                    <Tooltip content="Amount to transfer (uses transferKeepAlive to prevent killing the account)" />
-                  </label>
-                  <div className="flex items-center bg-[var(--surface)] rounded-lg focus-within:ring-2 focus-within:ring-[var(--polkadot-accent)]/20 transition-all overflow-hidden">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={transferAmount}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                          setTransferAmount(value);
-                        }
-                      }}
-                      placeholder="0.00"
-                      className="flex-1 h-12 px-4 bg-transparent text-[var(--foreground)]"
-                    />
-                    <div className="flex items-center justify-center h-12 px-4 text-sm font-medium text-[var(--foreground-muted)]">
-                      {selectedNetwork.tokenSymbol}
-                    </div>
-                  </div>
-                </div>
-
                 <button
-                  onClick={handleTransfer}
+                  onClick={handleTransferAll}
                   disabled={
                     !transferRecipient ||
-                    !transferAmount ||
                     txStatus === "signing" ||
                     txStatus === "submitting" ||
                     txStatus === "in_block"
@@ -746,7 +713,7 @@ export default function InheritedPage() {
                   {txStatus === "submitting" && "Submitting transaction..."}
                   {txStatus === "in_block" && "Waiting for finalization..."}
                   {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
-                    "Transfer"}
+                    "Transfer All"}
                 </button>
               </div>
             )}

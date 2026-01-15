@@ -691,6 +691,9 @@ export default function HelpRecoverPage() {
               <h4 className="font-semibold">Account Already Recovered</h4>
               <p className="text-sm opacity-90 mt-1">
                 This account has been recovered by a friend group with priority order {recoveryStatus.currentInheritanceOrder}.
+                {recoveryStatus.currentInheritanceOrder === 0
+                  ? " No other groups can contest."
+                  : ` Friend groups with priority lower than ${recoveryStatus.currentInheritanceOrder} can still contest.`}
               </p>
               <div className="mt-2 p-2 bg-[var(--background)] rounded-lg">
                 <span className="text-xs text-[var(--foreground-muted)]">Current Inheritor:</span>
@@ -709,16 +712,6 @@ export default function HelpRecoverPage() {
                   </p>
                 )}
               </div>
-              {recoveryStatus.currentInheritanceOrder !== 0 && (
-                <p className="text-xs opacity-90 mt-2">
-                  Friend groups with priority lower than {recoveryStatus.currentInheritanceOrder} can still contest.
-                </p>
-              )}
-              {recoveryStatus.currentInheritanceOrder === 0 && (
-                <p className="text-xs opacity-90 mt-2">
-                  Recovered by highest priority group. No other groups can contest.
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -747,11 +740,18 @@ export default function HelpRecoverPage() {
               <div
                 key={groupIndex}
                 className={`rounded-xl p-5 bg-[var(--background)] ${
-                  groupIsBlocked ? "opacity-60" : ""
+                  groupIsBlocked && group.inheritance_order > recoveryStatus.currentInheritanceOrder! ? "opacity-60" : ""
                 }`}
               >
-                {/* Blocked Banner */}
-                {groupIsBlocked && (
+                {/* Recovery Status Banner */}
+                {groupIsBlocked && group.inheritance_order === recoveryStatus.currentInheritanceOrder && (
+                  <div className="mb-4 alert alert-success">
+                    <p className="text-sm">
+                      This group has completed recovery of the account.
+                    </p>
+                  </div>
+                )}
+                {groupIsBlocked && group.inheritance_order > recoveryStatus.currentInheritanceOrder! && (
                   <div className="mb-4 alert alert-error">
                     <p className="text-sm">
                       This group cannot recover. A higher priority group has already completed recovery.
@@ -790,7 +790,12 @@ export default function HelpRecoverPage() {
                         You are a friend
                       </span>
                     )}
-                    {groupIsBlocked && (
+                    {groupIsBlocked && group.inheritance_order === recoveryStatus.currentInheritanceOrder && (
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--success)] text-white">
+                        Recovered
+                      </span>
+                    )}
+                    {groupIsBlocked && group.inheritance_order > recoveryStatus.currentInheritanceOrder! && (
                       <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--error-bg)] text-[var(--error)]">
                         Blocked
                       </span>
@@ -896,15 +901,11 @@ export default function HelpRecoverPage() {
                       ? "Contest Current Recovery"
                       : "Initiate Recovery Attempt"}
                   </button>
-                ) : groupIsBlocked ? (
-                  <p className="text-sm text-[var(--error)] text-center py-2">
-                    This group cannot initiate recovery - a higher priority group has already recovered the account
-                  </p>
-                ) : (
+                ) : !groupIsBlocked ? (
                   <p className="text-sm text-[var(--foreground-muted)] text-center py-2">
                     You are not a friend in this group
                   </p>
-                )}
+                ) : null}
               </div>
             );
           })}
