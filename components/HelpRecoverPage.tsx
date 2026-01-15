@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { ISubmittableResult } from "@polkadot/types/types";
 import { useNetwork } from "@/lib/NetworkContext";
 import { usePolkadotApi } from "@/lib/usePolkadotApi";
+import { usePapi } from "@/lib/PapiContext";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import AttemptCard from "./shared/AttemptCard";
 import Tooltip from "./Tooltip";
@@ -60,6 +61,7 @@ export default function HelpRecoverPage() {
     error: apiError,
     connect,
   } = usePolkadotApi();
+  const { typedApi, isConnected: papiConnected } = usePapi();
   const {
     wallet,
     accounts,
@@ -86,9 +88,9 @@ export default function HelpRecoverPage() {
 
   const selectedAccount = walletSelectedAccount?.address || "";
 
-  // Fetch friend groups and attempts for the lost account
+  // Fetch friend groups and attempts for the lost account using PAPI view functions
   const fetchLostAccountData = useCallback(async () => {
-    if (!api || !isConnected || !lostAccount) {
+    if (!typedApi || !papiConnected || !lostAccount) {
       setFriendGroups([]);
       setAttempts([]);
       setRecoveryStatus({
@@ -102,86 +104,67 @@ export default function HelpRecoverPage() {
     setIsLoading(true);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiCall = api.call as any;
-      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
-
-      if (!recoveryApi) {
-        showToast("Recovery pallet not found on this network", "error");
-        setIsLoading(false);
-        return;
-      }
-
-      if (recoveryApi.providedBlockNumber) {
-        const blockResult = await recoveryApi.providedBlockNumber();
-        if (blockResult && !blockResult.isEmpty) {
-          setCurrentBlock(blockResult.toJSON() as number);
+      // Get current block number using PAPI view function
+      try {
+        const blockResult =
+          await typedApi.view.Recovery.provided_block_number();
+        if (blockResult) {
+          setCurrentBlock(Number(blockResult));
         }
-      } else {
-        const header = await api.rpc.chain.getHeader();
-        setCurrentBlock(header.number.toNumber());
+      } catch {
+        // Fall back to RPC if available
+        if (api) {
+          const header = await api.rpc.chain.getHeader();
+          setCurrentBlock(header.number.toNumber());
+        }
       }
 
-      // Fetch friend groups using view function
+      // Fetch friend groups using PAPI view function
       let fetchedFriendGroups: FriendGroup[] = [];
-      if (recoveryApi.friendGroups) {
-        const result = await recoveryApi.friendGroups(lostAccount);
-        if (result && !result.isEmpty) {
-          const data = result.toJSON();
-          if (Array.isArray(data) && data.length > 0) {
-            fetchedFriendGroups = data
-              .filter((item: any) => item !== null)
-              .map((group: any) => ({
-                friends: group.friends || [],
-                friends_needed:
-                  group.friends_needed ?? group.friendsNeeded ?? 0,
-                inheritor: group.inheritor || "",
-                inheritance_delay:
-                  group.inheritance_delay ?? group.inheritanceDelay ?? 0,
-                inheritance_order:
-                  group.inheritance_order ?? group.inheritanceOrder ?? 0,
-                cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
-                deposit: group.deposit ?? 0,
-              }));
-          }
-        }
+      const fgResult = await typedApi.view.Recovery.friend_groups(lostAccount);
+      if (fgResult && Array.isArray(fgResult) && fgResult.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fetchedFriendGroups = fgResult
+          .filter((item: any) => item !== null)
+          .map((group: any) => ({
+            friends: group.friends || [],
+            friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
+            inheritor: group.inheritor || "",
+            inheritance_delay:
+              group.inheritance_delay ?? group.inheritanceDelay ?? 0,
+            inheritance_order:
+              group.inheritance_order ?? group.inheritanceOrder ?? 0,
+            cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
+            deposit: group.deposit ?? 0,
+          }));
       }
       setFriendGroups(fetchedFriendGroups);
 
-      // Fetch current inheritor status using view function
+      // Fetch current inheritor status using PAPI view function
       try {
-        if (recoveryApi.inheritor) {
-          const inheritorResult = await recoveryApi.inheritor(lostAccount);
-          if (inheritorResult && !inheritorResult.isEmpty) {
-            const inheritorAddress = inheritorResult.toJSON();
-            if (inheritorAddress) {
-              // To get the inheritance order, we need to check which friend group has this inheritor
-              let inheritanceOrder = 0;
-              for (const group of fetchedFriendGroups) {
-                if (group.inheritor === inheritorAddress) {
-                  inheritanceOrder = group.inheritance_order;
-                  break;
-                }
-              }
-              setRecoveryStatus({
-                isRecovered: true,
-                currentInheritor: inheritorAddress as string,
-                currentInheritanceOrder: inheritanceOrder,
-              });
-            } else {
-              setRecoveryStatus({
-                isRecovered: false,
-                currentInheritor: null,
-                currentInheritanceOrder: null,
-              });
+        const inheritorResult =
+          await typedApi.view.Recovery.inheritor(lostAccount);
+        if (inheritorResult) {
+          const inheritorAddress = inheritorResult as string;
+          // To get the inheritance order, we need to check which friend group has this inheritor
+          let inheritanceOrder = 0;
+          for (const group of fetchedFriendGroups) {
+            if (group.inheritor === inheritorAddress) {
+              inheritanceOrder = group.inheritance_order;
+              break;
             }
-          } else {
-            setRecoveryStatus({
-              isRecovered: false,
-              currentInheritor: null,
-              currentInheritanceOrder: null,
-            });
           }
+          setRecoveryStatus({
+            isRecovered: true,
+            currentInheritor: inheritorAddress,
+            currentInheritanceOrder: inheritanceOrder,
+          });
+        } else {
+          setRecoveryStatus({
+            isRecovered: false,
+            currentInheritor: null,
+            currentInheritanceOrder: null,
+          });
         }
       } catch (inheritorErr) {
         console.warn("Could not fetch inheritor:", inheritorErr);
@@ -192,85 +175,83 @@ export default function HelpRecoverPage() {
         });
       }
 
-      // Fetch attempts (in separate try-catch so it doesn't fail everything)
+      // Fetch attempts using PAPI view function
       try {
-        if (recoveryApi.attempts) {
-          const attemptsResult = await recoveryApi.attempts(lostAccount);
-          const fetchedAttempts: AttemptWithGroup[] = [];
+        const fetchedAttempts: AttemptWithGroup[] = [];
+        const attemptsResult =
+          await typedApi.view.Recovery.attempts(lostAccount);
 
-          if (attemptsResult && !attemptsResult.isEmpty) {
-            const data = attemptsResult.toJSON();
-            if (Array.isArray(data)) {
-              for (const item of data) {
-                const [friendGroup, attemptData] = item;
+        if (attemptsResult && Array.isArray(attemptsResult)) {
+          for (const item of attemptsResult) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const [friendGroup, attemptData] = item as any;
 
-                // Count approvals and track voter indices from bitfield
-                let approvalCount = 0;
-                const voterIndices: number[] = [];
-                const approvals = attemptData.approvals;
+            // Count approvals and track voter indices from bitfield
+            let approvalCount = 0;
+            const voterIndices: number[] = [];
+            const approvals = attemptData.approvals;
 
-                if (Array.isArray(approvals)) {
-                  for (let wordIdx = 0; wordIdx < approvals.length; wordIdx++) {
-                    const word = approvals[wordIdx] >>> 0;
-                    for (let bit = 0; bit < 16; bit++) {
-                      if (word & (1 << bit)) {
-                        approvalCount++;
-                        voterIndices.push(wordIdx * 16 + bit);
-                      }
-                    }
-                  }
-                } else if (typeof approvals === "number") {
-                  const word = approvals >>> 0;
-                  for (let bit = 0; bit < 32; bit++) {
-                    if (word & (1 << bit)) {
-                      approvalCount++;
-                      voterIndices.push(bit);
-                    }
+            if (Array.isArray(approvals)) {
+              for (let wordIdx = 0; wordIdx < approvals.length; wordIdx++) {
+                const word = Number(approvals[wordIdx]) >>> 0;
+                for (let bit = 0; bit < 16; bit++) {
+                  if (word & (1 << bit)) {
+                    approvalCount++;
+                    voterIndices.push(wordIdx * 16 + bit);
                   }
                 }
-
-                fetchedAttempts.push({
-                  friendGroup: {
-                    friends: friendGroup.friends || [],
-                    friends_needed:
-                      friendGroup.friends_needed ??
-                      friendGroup.friendsNeeded ??
-                      0,
-                    inheritor: friendGroup.inheritor || "",
-                    inheritance_delay:
-                      friendGroup.inheritance_delay ??
-                      friendGroup.inheritanceDelay ??
-                      0,
-                    inheritance_order:
-                      friendGroup.inheritance_order ??
-                      friendGroup.inheritanceOrder ??
-                      0,
-                    cancel_delay:
-                      friendGroup.cancel_delay ?? friendGroup.cancelDelay ?? 0,
-                    deposit: friendGroup.deposit ?? 0,
-                  },
-                  attempt: {
-                    friend_group_index:
-                      attemptData.friend_group_index ??
-                      attemptData.friendGroupIndex ??
-                      0,
-                    initiator: attemptData.initiator || "",
-                    init_block:
-                      attemptData.init_block ?? attemptData.initBlock ?? 0,
-                    last_approval_block:
-                      attemptData.last_approval_block ??
-                      attemptData.lastApprovalBlock ??
-                      0,
-                    approvals: approvalCount,
-                    voterIndices,
-                  },
-                });
+              }
+            } else if (
+              typeof approvals === "number" ||
+              typeof approvals === "bigint"
+            ) {
+              const word = Number(approvals) >>> 0;
+              for (let bit = 0; bit < 32; bit++) {
+                if (word & (1 << bit)) {
+                  approvalCount++;
+                  voterIndices.push(bit);
+                }
               }
             }
-          }
 
-          setAttempts(fetchedAttempts);
+            fetchedAttempts.push({
+              friendGroup: {
+                friends: friendGroup.friends || [],
+                friends_needed:
+                  friendGroup.friends_needed ?? friendGroup.friendsNeeded ?? 0,
+                inheritor: friendGroup.inheritor || "",
+                inheritance_delay:
+                  friendGroup.inheritance_delay ??
+                  friendGroup.inheritanceDelay ??
+                  0,
+                inheritance_order:
+                  friendGroup.inheritance_order ??
+                  friendGroup.inheritanceOrder ??
+                  0,
+                cancel_delay:
+                  friendGroup.cancel_delay ?? friendGroup.cancelDelay ?? 0,
+                deposit: friendGroup.deposit ?? 0,
+              },
+              attempt: {
+                friend_group_index:
+                  attemptData.friend_group_index ??
+                  attemptData.friendGroupIndex ??
+                  0,
+                initiator: attemptData.initiator || "",
+                init_block:
+                  attemptData.init_block ?? attemptData.initBlock ?? 0,
+                last_approval_block:
+                  attemptData.last_approval_block ??
+                  attemptData.lastApprovalBlock ??
+                  0,
+                approvals: approvalCount,
+                voterIndices,
+              },
+            });
+          }
         }
+
+        setAttempts(fetchedAttempts);
       } catch (attemptErr) {
         console.warn("Could not fetch attempts:", attemptErr);
         setAttempts([]);
@@ -284,7 +265,7 @@ export default function HelpRecoverPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [api, isConnected, lostAccount, showToast]);
+  }, [typedApi, papiConnected, lostAccount, api, showToast]);
 
   // Fetch data when lost account changes
   useEffect(() => {

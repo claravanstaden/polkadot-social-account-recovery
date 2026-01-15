@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { ISubmittableResult } from "@polkadot/types/types";
 import { useNetwork } from "@/lib/NetworkContext";
 import { usePolkadotApi } from "@/lib/usePolkadotApi";
+import { usePapi } from "@/lib/PapiContext";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import Tooltip from "./Tooltip";
 import { useToast } from "./Toast";
@@ -51,6 +52,7 @@ export default function InheritedPage() {
     error: apiError,
     connect,
   } = usePolkadotApi();
+  const { typedApi, isConnected: papiConnected } = usePapi();
   const {
     wallet,
     accounts,
@@ -75,9 +77,9 @@ export default function InheritedPage() {
 
   const selectedAccount = walletSelectedAccount?.address || "";
 
-  // Fetch inherited accounts
+  // Fetch inherited accounts using PAPI view functions
   const fetchInheritedAccounts = useCallback(async () => {
-    if (!api || !isConnected || !selectedAccount) {
+    if (!typedApi || !papiConnected || !selectedAccount) {
       setInheritedAccounts([]);
       return;
     }
@@ -85,37 +87,30 @@ export default function InheritedPage() {
     setIsLoading(true);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiCall = api.call as any;
-      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
-
-      if (!recoveryApi) {
-        setInheritedAccounts([]);
-        setIsLoading(false);
-        return;
-      }
-
       let inheritedAddresses: string[] = [];
 
-      // Get all accounts this user has inherited
-      if (recoveryApi.inheritance) {
-        const result = await recoveryApi.inheritance(selectedAccount);
-        if (result && !result.isEmpty) {
-          inheritedAddresses = result.toJSON() || [];
-        }
+      // Get all accounts this user has inherited using PAPI view function
+      const inheritanceResult =
+        await typedApi.view.Recovery.inheritance(selectedAccount);
+      if (inheritanceResult && Array.isArray(inheritanceResult)) {
+        inheritedAddresses = inheritanceResult as string[];
       }
 
       // Fetch balances and friend groups for each inherited account
       const accountsWithBalances: InheritedAccount[] = [];
-      const tokenDecimals = api.registry.chainDecimals[0];
-      const tokenSymbol = api.registry.chainTokens[0];
+      const tokenDecimals = api?.registry.chainDecimals[0] || 10;
+      const tokenSymbol = api?.registry.chainTokens[0] || "DOT";
 
       for (const address of inheritedAddresses) {
         try {
-          // Fetch balance
-          const accountInfo = await api.query.system.account(address);
-          const data = accountInfo.toJSON() as any;
-          const freeBalance = BigInt(data?.data?.free || 0);
+          // Fetch balance (still need to use storage query for system.account)
+          let freeBalance = BigInt(0);
+          if (api) {
+            const accountInfo = await api.query.system.account(address);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = accountInfo.toJSON() as any;
+            freeBalance = BigInt(data?.data?.free || 0);
+          }
           const balanceFormatted = (
             Number(freeBalance) / Math.pow(10, tokenDecimals)
           ).toLocaleString("en-US", {
@@ -123,49 +118,41 @@ export default function InheritedPage() {
             maximumFractionDigits: 2,
           });
 
-          // Fetch friend groups
+          // Fetch friend groups using PAPI view function
           let friendGroups: FriendGroup[] = [];
           let inheritanceOrder = 0;
 
-          if (recoveryApi.friendGroups) {
-            const fgResult = await recoveryApi.friendGroups(address);
-            if (fgResult && !fgResult.isEmpty) {
-              const fgData = fgResult.toJSON();
-              if (Array.isArray(fgData) && fgData.length > 0) {
-                friendGroups = fgData
-                  .filter((g: any) => g !== null)
-                  .map((g: any) => ({
-                    friends: g.friends || [],
-                    friends_needed: g.friends_needed ?? g.friendsNeeded ?? 0,
-                    inheritor: g.inheritor || "",
-                    inheritance_delay:
-                      g.inheritance_delay ?? g.inheritanceDelay ?? 0,
-                    inheritance_order:
-                      g.inheritance_order ?? g.inheritanceOrder ?? 0,
-                    cancel_delay: g.cancel_delay ?? g.cancelDelay ?? 0,
-                    deposit: g.deposit ?? 0,
-                  }));
+          const fgResult = await typedApi.view.Recovery.friend_groups(address);
+          if (fgResult && Array.isArray(fgResult) && fgResult.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            friendGroups = fgResult
+              .filter((g: any) => g !== null)
+              .map((g: any) => ({
+                friends: g.friends || [],
+                friends_needed: g.friends_needed ?? g.friendsNeeded ?? 0,
+                inheritor: g.inheritor || "",
+                inheritance_delay:
+                  g.inheritance_delay ?? g.inheritanceDelay ?? 0,
+                inheritance_order:
+                  g.inheritance_order ?? g.inheritanceOrder ?? 0,
+                cancel_delay: g.cancel_delay ?? g.cancelDelay ?? 0,
+                deposit: g.deposit ?? 0,
+              }));
 
-                // Find the inheritance order from the friend group that matches the current inheritor
-                for (const group of friendGroups) {
-                  if (group.inheritor === selectedAccount) {
-                    inheritanceOrder = group.inheritance_order;
-                    break;
-                  }
-                }
+            // Find the inheritance order from the friend group that matches the current inheritor
+            for (const group of friendGroups) {
+              if (group.inheritor === selectedAccount) {
+                inheritanceOrder = group.inheritance_order;
+                break;
               }
             }
           }
 
-          // Check for ongoing attempts using view function
+          // Check for ongoing attempts using PAPI view function
           let hasOngoingAttempts = false;
-          if (recoveryApi.attempts) {
-            const attemptsResult = await recoveryApi.attempts(address);
-            if (attemptsResult && !attemptsResult.isEmpty) {
-              const attemptsData = attemptsResult.toJSON();
-              hasOngoingAttempts =
-                Array.isArray(attemptsData) && attemptsData.length > 0;
-            }
+          const attemptsResult = await typedApi.view.Recovery.attempts(address);
+          if (attemptsResult && Array.isArray(attemptsResult)) {
+            hasOngoingAttempts = attemptsResult.length > 0;
           }
 
           // Check which groups can contest (lower order than current)
@@ -208,7 +195,7 @@ export default function InheritedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [api, isConnected, selectedAccount]);
+  }, [typedApi, papiConnected, selectedAccount, api]);
 
   // Fetch inherited accounts when connection or account changes
   useEffect(() => {
@@ -554,7 +541,9 @@ export default function InheritedPage() {
                         </p>
                         <p className="text-xs opacity-90 mt-1">
                           {account.contestingGroups.length} friend group
-                          {account.contestingGroups.length !== 1 ? "s" : ""}{" "}
+                          {account.contestingGroups.length !== 1
+                            ? "s"
+                            : ""}{" "}
                           with higher priority can still take over access.
                         </p>
                       </div>

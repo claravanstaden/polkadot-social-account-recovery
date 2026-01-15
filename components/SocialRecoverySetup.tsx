@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { ISubmittableResult } from "@polkadot/types/types";
 import { useNetwork } from "@/lib/NetworkContext";
 import { usePolkadotApi } from "@/lib/usePolkadotApi";
+import { usePapi } from "@/lib/PapiContext";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import NumberInput from "./NumberInput";
 import Tooltip from "./Tooltip";
@@ -54,6 +55,7 @@ export default function SocialRecoverySetup() {
     error: apiError,
     connect,
   } = usePolkadotApi();
+  const { typedApi, isConnected: papiConnected } = usePapi();
   const {
     wallet,
     accounts,
@@ -114,9 +116,9 @@ export default function SocialRecoverySetup() {
     }
   }, [wallet]);
 
-  // Fetch existing friend groups from chain
+  // Fetch existing friend groups from chain using PAPI view functions
   const fetchExistingFriendGroups = useCallback(async () => {
-    if (!api || !isConnected || !selectedAccount) {
+    if (!typedApi || !papiConnected || !selectedAccount) {
       setExistingFriendGroups(null);
       return;
     }
@@ -124,39 +126,30 @@ export default function SocialRecoverySetup() {
     setIsLoadingExisting(true);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiCall = api.call as any;
-      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
+      console.log("Fetching friend groups via PAPI for:", selectedAccount);
 
-      if (!recoveryApi || !recoveryApi.friendGroups) {
-        setExistingFriendGroups(null);
-        setIsLoadingExisting(false);
-        return;
-      }
+      // Use PAPI view function: typedApi.view.Recovery.friend_groups(account)
+      const result =
+        await typedApi.view.Recovery.friend_groups(selectedAccount);
 
-      const result = await recoveryApi.friendGroups(selectedAccount);
+      console.log("PAPI friendGroups result:", result);
 
-      if (result && !result.isEmpty) {
-        const data = result.toJSON();
-
-        if (Array.isArray(data) && data.length > 0) {
-          const parsedGroups: FriendGroup[] = data
-            .filter((item: any) => item !== null)
-            .map((group: any) => ({
-              friends: group.friends || [],
-              friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
-              inheritor: group.inheritor || "",
-              inheritance_delay:
-                group.inheritance_delay ?? group.inheritanceDelay ?? 0,
-              inheritance_order:
-                group.inheritance_order ?? group.inheritanceOrder ?? 0,
-              cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
-              deposit: group.deposit ?? 0,
-            }));
-          setExistingFriendGroups(parsedGroups);
-        } else {
-          setExistingFriendGroups(null);
-        }
+      if (result && Array.isArray(result) && result.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const parsedGroups: FriendGroup[] = result
+          .filter((item: any) => item !== null)
+          .map((group: any) => ({
+            friends: group.friends || [],
+            friends_needed: group.friends_needed ?? group.friendsNeeded ?? 0,
+            inheritor: group.inheritor || "",
+            inheritance_delay:
+              group.inheritance_delay ?? group.inheritanceDelay ?? 0,
+            inheritance_order:
+              group.inheritance_order ?? group.inheritanceOrder ?? 0,
+            cancel_delay: group.cancel_delay ?? group.cancelDelay ?? 0,
+            deposit: group.deposit ?? 0,
+          }));
+        setExistingFriendGroups(parsedGroups);
       } else {
         setExistingFriendGroups(null);
       }
@@ -166,16 +159,16 @@ export default function SocialRecoverySetup() {
     } finally {
       setIsLoadingExisting(false);
     }
-  }, [api, isConnected, selectedAccount]);
+  }, [typedApi, papiConnected, selectedAccount]);
 
   // Fetch existing friend groups when account or connection changes
   useEffect(() => {
     fetchExistingFriendGroups();
   }, [fetchExistingFriendGroups]);
 
-  // Fetch attempts on this account
+  // Fetch attempts on this account using PAPI view functions
   const fetchAttemptsOnAccount = useCallback(async () => {
-    if (!api || !isConnected || !selectedAccount) {
+    if (!typedApi || !papiConnected || !selectedAccount) {
       setAttemptsOnAccount([]);
       return;
     }
@@ -183,75 +176,68 @@ export default function SocialRecoverySetup() {
     setIsLoadingAttempts(true);
 
     try {
-      // Get current block number using view function if available, otherwise fall back to RPC
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiCall = api.call as any;
-      const recoveryApi = apiCall.recoveryApi || apiCall.recovery;
-
-      if (recoveryApi?.providedBlockNumber) {
-        const blockResult = await recoveryApi.providedBlockNumber();
-        if (blockResult && !blockResult.isEmpty) {
-          setCurrentBlock(blockResult.toJSON() as number);
+      // Get current block number using PAPI view function
+      try {
+        const blockResult =
+          await typedApi.view.Recovery.provided_block_number();
+        if (blockResult) {
+          setCurrentBlock(Number(blockResult));
         }
-      } else {
-        const header = await api.rpc.chain.getHeader();
-        setCurrentBlock(header.number.toNumber());
+      } catch {
+        // Fall back to RPC if available
+        if (api) {
+          const header = await api.rpc.chain.getHeader();
+          setCurrentBlock(header.number.toNumber());
+        }
       }
 
-      if (!recoveryApi || !recoveryApi.attempts) {
-        setAttemptsOnAccount([]);
-        return;
-      }
+      // Use PAPI view function to get attempts
+      const result = await typedApi.view.Recovery.attempts(selectedAccount);
 
-      // Use view function to get attempts
-      const result = await recoveryApi.attempts(selectedAccount);
-      if (result && !result.isEmpty) {
-        const data = result.toJSON();
-        if (Array.isArray(data)) {
-          const attempts: AttemptWithGroup[] = data.map((item: any) => {
-            const [friendGroup, attempt] = item;
-            // Count approvals from bitfield
-            let approvalCount = 0;
-            const approvals = attempt.approvals;
-            if (Array.isArray(approvals)) {
-              for (const word of approvals) {
-                approvalCount += (word >>> 0).toString(2).split("1").length - 1;
-              }
+      if (result && Array.isArray(result)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const attempts: AttemptWithGroup[] = result.map((item: any) => {
+          const [friendGroup, attempt] = item;
+          // Count approvals from bitfield
+          let approvalCount = 0;
+          const approvals = attempt.approvals;
+          if (Array.isArray(approvals)) {
+            for (const word of approvals) {
+              approvalCount +=
+                (Number(word) >>> 0).toString(2).split("1").length - 1;
             }
+          }
 
-            return {
-              friendGroup: {
-                friends: friendGroup.friends || [],
-                friends_needed:
-                  friendGroup.friends_needed ?? friendGroup.friendsNeeded ?? 0,
-                inheritor: friendGroup.inheritor || "",
-                inheritance_delay:
-                  friendGroup.inheritance_delay ??
-                  friendGroup.inheritanceDelay ??
-                  0,
-                inheritance_order:
-                  friendGroup.inheritance_order ??
-                  friendGroup.inheritanceOrder ??
-                  0,
-                cancel_delay:
-                  friendGroup.cancel_delay ?? friendGroup.cancelDelay ?? 0,
-                deposit: friendGroup.deposit ?? 0,
-              },
-              attempt: {
-                friend_group_index:
-                  attempt.friend_group_index ?? attempt.friendGroupIndex ?? 0,
-                initiator: attempt.initiator || "",
-                init_block: attempt.init_block ?? attempt.initBlock ?? 0,
-                last_approval_block:
-                  attempt.last_approval_block ?? attempt.lastApprovalBlock ?? 0,
-                approvals: approvalCount,
-              },
-            };
-          });
-          setAttemptsOnAccount(attempts);
-        } else {
-          setAttemptsOnAccount([]);
-        }
+          return {
+            friendGroup: {
+              friends: friendGroup.friends || [],
+              friends_needed:
+                friendGroup.friends_needed ?? friendGroup.friendsNeeded ?? 0,
+              inheritor: friendGroup.inheritor || "",
+              inheritance_delay:
+                friendGroup.inheritance_delay ??
+                friendGroup.inheritanceDelay ??
+                0,
+              inheritance_order:
+                friendGroup.inheritance_order ??
+                friendGroup.inheritanceOrder ??
+                0,
+              cancel_delay:
+                friendGroup.cancel_delay ?? friendGroup.cancelDelay ?? 0,
+              deposit: friendGroup.deposit ?? 0,
+            },
+            attempt: {
+              friend_group_index:
+                attempt.friend_group_index ?? attempt.friendGroupIndex ?? 0,
+              initiator: attempt.initiator || "",
+              init_block: attempt.init_block ?? attempt.initBlock ?? 0,
+              last_approval_block:
+                attempt.last_approval_block ?? attempt.lastApprovalBlock ?? 0,
+              approvals: approvalCount,
+            },
+          };
+        });
+        setAttemptsOnAccount(attempts);
       } else {
         setAttemptsOnAccount([]);
       }
@@ -261,7 +247,7 @@ export default function SocialRecoverySetup() {
     } finally {
       setIsLoadingAttempts(false);
     }
-  }, [api, isConnected, selectedAccount]);
+  }, [typedApi, papiConnected, selectedAccount, api]);
 
   // Fetch attempts when account or connection changes
   useEffect(() => {
