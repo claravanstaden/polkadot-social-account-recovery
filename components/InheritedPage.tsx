@@ -71,7 +71,6 @@ export default function InheritedPage() {
   // Transfer form state
   const [selectedInherited, setSelectedInherited] = useState<string>("");
   const [transferRecipient, setTransferRecipient] = useState<string>("");
-  const [transferAmount, setTransferAmount] = useState<string>("");
 
   const selectedAccount = walletSelectedAccount?.address || "";
 
@@ -136,7 +135,7 @@ export default function InheritedPage() {
           const data = accountInfo.toJSON() as any;
           const freeBalance = BigInt(data?.data?.free || 0);
           const decimals = selectedNetwork.tokenDecimals;
-          const balanceFormatted = (Number(freeBalance) / Math.pow(10, decimals)).toFixed(4);
+          const balanceFormatted = (Number(freeBalance) / Math.pow(10, decimals)).toFixed(2);
 
           // Fetch inheritance order from Inheritor storage
           let inheritanceOrder = 0;
@@ -225,14 +224,8 @@ export default function InheritedPage() {
   // Handle transfer from inherited account
   const handleTransfer = useCallback(async () => {
     if (!api || !isConnected || !wallet || !selectedAccount) return;
-    if (!selectedInherited || !transferRecipient || !transferAmount) {
+    if (!selectedInherited || !transferRecipient) {
       showToast("Please fill in all transfer fields", "error");
-      return;
-    }
-
-    const amount = parseFloat(transferAmount);
-    if (isNaN(amount) || amount <= 0) {
-      showToast("Please enter a valid transfer amount", "error");
       return;
     }
 
@@ -252,12 +245,8 @@ export default function InheritedPage() {
         return;
       }
 
-      // Convert amount to chain format
-      const decimals = selectedNetwork.tokenDecimals;
-      const amountRaw = BigInt(Math.round(amount * Math.pow(10, decimals)));
-
-      // Create the inner transfer call
-      const transferCall = api.tx.balances.transferKeepAlive(transferRecipient, amountRaw);
+      // Create the inner transferAll call with keepAlive = false
+      const transferCall = api.tx.balances.transferAll(transferRecipient, false);
 
       // Wrap it with controlInheritedAccount
       const tx = recoveryPallet.controlInheritedAccount(selectedInherited, transferCall);
@@ -288,8 +277,7 @@ export default function InheritedPage() {
               showToast(errorMessage, "error");
               setTxStatus("error");
             } else {
-              showToast(`Successfully transferred ${transferAmount} ${selectedNetwork.tokenSymbol}!`, "success");
-              setTransferAmount("");
+              showToast(`Successfully transferred all funds from inherited account!`, "success");
               setTransferRecipient("");
               fetchInheritedAccounts();
             }
@@ -303,7 +291,7 @@ export default function InheritedPage() {
       showToast(err instanceof Error ? err.message : "Failed to transfer", "error");
       setTxStatus("error");
     }
-  }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, transferAmount, selectedNetwork, fetchInheritedAccounts, showToast]);
+  }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, fetchInheritedAccounts, showToast]);
 
   // Handle clearing friend groups to prevent future contests
   const handleClearFriendGroups = useCallback(async (inheritedAddress: string) => {
@@ -619,14 +607,14 @@ export default function InheritedPage() {
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      Selected for transfer
+                      Selected for withdrawal
                     </span>
                   ) : (
                     <button
                       onClick={(e) => { e.stopPropagation(); setSelectedInherited(account.address); }}
                       className="text-sm px-4 py-2 rounded-lg bg-[var(--polkadot-accent)] text-white hover:bg-[var(--polkadot-accent-hover)] transition-colors"
                     >
-                      Select for Transfer
+                      Select for Withdrawal
                     </button>
                   )}
 
@@ -672,30 +660,19 @@ export default function InheritedPage() {
           <div className="section-divider" />
           <div className="rounded-xl p-6 bg-[var(--background)]">
             <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
-              Transfer from Inherited Account
+              Withdraw from Inherited Account
             </h3>
 
             {!selectedInherited ? (
               <p className="text-sm text-[var(--foreground-muted)] text-center py-6">
-                Select an inherited account above to transfer from
+                Select an inherited account above to withdraw funds
               </p>
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs text-[var(--foreground-muted)] uppercase tracking-wide mb-2">
-                    From Account
-                  </label>
-                  <div className="px-4 py-3 bg-[var(--surface)] rounded-lg">
-                    <p className="font-mono text-sm text-[var(--foreground)] truncate">
-                      {selectedInherited}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
                   <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
                     Recipient Address
-                    <Tooltip content="The account that will receive the transferred tokens" />
+                    <Tooltip content="The account that will receive the transferable DOT." />
                   </label>
                   <input
                     type="text"
@@ -706,27 +683,16 @@ export default function InheritedPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
-                    Amount
-                    <Tooltip content="Amount to transfer (uses transferKeepAlive to prevent killing the account)" />
-                  </label>
-                  <div className="flex items-center bg-[var(--surface)] rounded-lg focus-within:ring-2 focus-within:ring-[var(--polkadot-accent)]/20 transition-all overflow-hidden">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={transferAmount}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                          setTransferAmount(value);
-                        }
-                      }}
-                      placeholder="0.00"
-                      className="flex-1 h-12 px-4 bg-transparent text-[var(--foreground)]"
-                    />
-                    <div className="flex items-center justify-center h-12 px-4 text-sm font-medium text-[var(--foreground-muted)]">
-                      {selectedNetwork.tokenSymbol}
+                <div className="alert alert-info text-sm">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium">Withdrawing transferable DOT</p>
+                      <p className="opacity-90 mt-1">
+                        This will withdraw all transferable DOT from the inherited account. There may be tokens, staked, vested or other funds remaining.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -735,7 +701,6 @@ export default function InheritedPage() {
                   onClick={handleTransfer}
                   disabled={
                     !transferRecipient ||
-                    !transferAmount ||
                     txStatus === "signing" ||
                     txStatus === "submitting" ||
                     txStatus === "in_block"
@@ -746,7 +711,7 @@ export default function InheritedPage() {
                   {txStatus === "submitting" && "Submitting transaction..."}
                   {txStatus === "in_block" && "Waiting for finalization..."}
                   {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
-                    "Transfer"}
+                    "Withdraw All Funds"}
                 </button>
               </div>
             )}
