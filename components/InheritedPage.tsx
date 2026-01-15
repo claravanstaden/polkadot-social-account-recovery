@@ -7,14 +7,7 @@ import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import Tooltip from "./Tooltip";
 import { useToast } from "./Toast";
-
-type TxStatus =
-  | "idle"
-  | "signing"
-  | "submitting"
-  | "in_block"
-  | "finalized"
-  | "error";
+import { TxStatus, TxStatusEnum, getTxButtonLabel, getTxStatusMessage } from "@/lib/txStatus";
 
 interface FriendGroup {
   friends: string[];
@@ -30,6 +23,7 @@ interface InheritedAccount {
   address: string;
   balance: string;
   balanceRaw: bigint;
+  withdrawable: boolean; // True if balance > 0
   inheritanceOrder: number;
   friendGroups: FriendGroup[];
   hasOngoingAttempts: boolean;
@@ -61,7 +55,7 @@ export default function InheritedPage() {
   } = usePolkadotWallet();
   const { showToast } = useToast();
 
-  const [txStatus, setTxStatus] = useState<TxStatus>("idle");
+  const [txStatus, setTxStatus] = useState<TxStatus>(TxStatusEnum.IDLE);
   const [txHash, setTxHash] = useState<string | null>(null);
 
   // Inherited accounts
@@ -127,6 +121,7 @@ export default function InheritedPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const apiQuery = api.query as any;
       const recoveryQuery = apiQuery.recovery || apiQuery.socialRecovery || apiQuery.social_recovery;
+      const tokenDecimals = api.registry.chainDecimals[0];
 
       for (const address of inheritedAddresses) {
         try {
@@ -134,10 +129,10 @@ export default function InheritedPage() {
           const accountInfo = await api.query.system.account(address);
           const data = accountInfo.toJSON() as any;
           const freeBalance = BigInt(data?.data?.free || 0);
-          // Get decimals from chain metadata (fallback to network config)
-          const decimals = api.registry.chainDecimals?.[0] ?? selectedNetwork.tokenDecimals;
-          const tokenSymbol = api.registry.chainTokens?.[0] ?? selectedNetwork.tokenSymbol;
-          const balanceFormatted = (Number(freeBalance) / Math.pow(10, decimals)).toFixed(4);
+          const balanceFormatted = (Number(freeBalance) / Math.pow(10, tokenDecimals)).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
 
           // Fetch inheritance order from Inheritor storage
           let inheritanceOrder = 0;
@@ -188,6 +183,7 @@ export default function InheritedPage() {
             address,
             balance: `${balanceFormatted} ${tokenSymbol}`,
             balanceRaw: freeBalance,
+            withdrawable: freeBalance > BigInt(0),
             inheritanceOrder,
             friendGroups,
             hasOngoingAttempts,
@@ -200,6 +196,7 @@ export default function InheritedPage() {
             address,
             balance: "Unknown",
             balanceRaw: BigInt(0),
+            withdrawable: false,
             inheritanceOrder: 0,
             friendGroups: [],
             hasOngoingAttempts: false,
@@ -224,15 +221,15 @@ export default function InheritedPage() {
   }, [fetchInheritedAccounts]);
 
   // Handle transfer all from inherited account
-  const handleTransferAll = useCallback(async () => {
-    if (!api || !isConnected || !wallet || !selectedAccount) return;
-    if (!selectedInherited || !transferRecipient) {
-      showToast("Please select an account and enter a recipient address", "error");
-      return;
+    const handleTransfer = useCallback(async () => {
+        if (!api || !isConnected || !wallet || !selectedAccount) return;
+        if (!selectedInherited || !transferRecipient) {
+            showToast("Please fill in all transfer fields", "error");
+            return;
     }
 
     setTxHash(null);
-    setTxStatus("signing");
+    setTxStatus(TxStatusEnum.SIGNING);
 
     try {
       const signer = wallet.signer;
@@ -243,16 +240,16 @@ export default function InheritedPage() {
 
       if (!recoveryPallet?.controlInheritedAccount) {
         showToast("controlInheritedAccount method not found in recovery pallet", "error");
-        setTxStatus("error");
+        setTxStatus(TxStatusEnum.ERROR);
         return;
       }
 
-      // Create the inner transferAll call (keepAlive = false to transfer everything)
-      const transferAllCall = api.tx.balances.transferAll(transferRecipient, false);
+      // Create the inner transferAll call with keepAlive = false
+      const transferCall = api.tx.balances.transferAll(transferRecipient, false);
 
       // Wrap it with controlInheritedAccount
-      const tx = recoveryPallet.controlInheritedAccount(selectedInherited, transferAllCall);
-      setTxStatus("submitting");
+      const tx = recoveryPallet.controlInheritedAccount(selectedInherited, transferCall);
+      setTxStatus(TxStatusEnum.SUBMITTING);
 
       const unsub = await tx.signAndSend(
         selectedAccount,
@@ -262,11 +259,11 @@ export default function InheritedPage() {
           setTxHash(hash.toHex());
 
           if (status.isInBlock) {
-            setTxStatus("in_block");
+            setTxStatus(TxStatusEnum.IN_BLOCK);
           }
 
           if (status.isFinalized) {
-            setTxStatus("finalized");
+            setTxStatus(TxStatusEnum.FINALIZED);
 
             if (dispatchError) {
               let errorMessage = "Transaction failed";
@@ -277,9 +274,9 @@ export default function InheritedPage() {
                 errorMessage = dispatchError.toString();
               }
               showToast(errorMessage, "error");
-              setTxStatus("error");
+              setTxStatus(TxStatusEnum.ERROR);
             } else {
-              showToast("Successfully transferred all funds!", "success");
+              showToast(`Successfully transferred all funds from inherited account!`, "success");
               setTransferRecipient("");
               fetchInheritedAccounts();
             }
@@ -291,7 +288,7 @@ export default function InheritedPage() {
     } catch (err) {
       console.error("Transfer error:", err);
       showToast(err instanceof Error ? err.message : "Failed to transfer", "error");
-      setTxStatus("error");
+      setTxStatus(TxStatusEnum.ERROR);
     }
   }, [api, isConnected, wallet, selectedAccount, selectedInherited, transferRecipient, fetchInheritedAccounts, showToast]);
 
@@ -307,7 +304,7 @@ export default function InheritedPage() {
     }
 
     setTxHash(null);
-    setTxStatus("signing");
+    setTxStatus(TxStatusEnum.SIGNING);
 
     try {
       const signer = wallet.signer;
@@ -317,7 +314,7 @@ export default function InheritedPage() {
 
       if (!recoveryPallet?.controlInheritedAccount || !recoveryPallet?.setFriendGroups) {
         showToast("Required methods not found in recovery pallet", "error");
-        setTxStatus("error");
+        setTxStatus(TxStatusEnum.ERROR);
         return;
       }
 
@@ -326,7 +323,7 @@ export default function InheritedPage() {
 
       // Wrap it with controlInheritedAccount
       const tx = recoveryPallet.controlInheritedAccount(inheritedAddress, clearCall);
-      setTxStatus("submitting");
+      setTxStatus(TxStatusEnum.SUBMITTING);
 
       const unsub = await tx.signAndSend(
         selectedAccount,
@@ -336,11 +333,11 @@ export default function InheritedPage() {
           setTxHash(hash.toHex());
 
           if (status.isInBlock) {
-            setTxStatus("in_block");
+            setTxStatus(TxStatusEnum.IN_BLOCK);
           }
 
           if (status.isFinalized) {
-            setTxStatus("finalized");
+            setTxStatus(TxStatusEnum.FINALIZED);
 
             if (dispatchError) {
               let errorMessage = "Transaction failed";
@@ -351,7 +348,7 @@ export default function InheritedPage() {
                 errorMessage = dispatchError.toString();
               }
               showToast(errorMessage, "error");
-              setTxStatus("error");
+              setTxStatus(TxStatusEnum.ERROR);
             } else {
               showToast("Friend groups cleared successfully! This account can no longer be contested.", "success");
               fetchInheritedAccounts();
@@ -364,7 +361,7 @@ export default function InheritedPage() {
     } catch (err) {
       console.error("Clear friend groups error:", err);
       showToast(err instanceof Error ? err.message : "Failed to clear friend groups", "error");
-      setTxStatus("error");
+      setTxStatus(TxStatusEnum.ERROR);
     }
   }, [api, isConnected, wallet, selectedAccount, inheritedAccounts, fetchInheritedAccounts, showToast]);
 
@@ -470,12 +467,14 @@ export default function InheritedPage() {
             {inheritedAccounts.map((account) => (
               <div
                 key={account.address}
-                className={`p-5 rounded-xl bg-[var(--background)] transition-all cursor-pointer hover:shadow-md ${
+                className={`p-5 rounded-xl bg-[var(--background)] transition-all ${
+                  account.withdrawable ? "cursor-pointer hover:shadow-md" : "cursor-default"
+                } ${
                   selectedInherited === account.address
                     ? "ring-2 ring-[var(--polkadot-accent)] shadow-md"
                     : ""
                 }`}
-                onClick={() => setSelectedInherited(account.address)}
+                onClick={() => account.withdrawable && setSelectedInherited(account.address)}
               >
                 {/* Contest Warning */}
                 {account.canBeContested && (
@@ -604,19 +603,23 @@ export default function InheritedPage() {
 
                 {/* Actions */}
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  {selectedInherited === account.address ? (
+                  {!account.withdrawable ? (
+                    <span className="text-sm px-4 py-2 rounded-lg bg-[var(--grey-400)] text-white cursor-not-allowed">
+                      Already Withdrawn
+                    </span>
+                  ) : selectedInherited === account.address ? (
                     <span className="text-sm text-[var(--polkadot-accent)] flex items-center gap-1.5 font-medium">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      Selected for transfer
+                      Selected for withdrawal
                     </span>
                   ) : (
                     <button
                       onClick={(e) => { e.stopPropagation(); setSelectedInherited(account.address); }}
                       className="text-sm px-4 py-2 rounded-lg bg-[var(--polkadot-accent)] text-white hover:bg-[var(--polkadot-accent-hover)] transition-colors"
                     >
-                      Select for Transfer
+                      Select for Withdrawal
                     </button>
                   )}
 
@@ -629,7 +632,7 @@ export default function InheritedPage() {
                     }>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleClearFriendGroups(account.address); }}
-                        disabled={account.hasOngoingAttempts || txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block"}
+                        disabled={account.hasOngoingAttempts || txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK}
                         className="text-sm px-4 py-2 rounded-lg text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Clear Friend Groups
@@ -657,75 +660,65 @@ export default function InheritedPage() {
       </div>
 
       {/* Transfer Form */}
-      {inheritedAccounts.length > 0 && (
+      {inheritedAccounts.length > 0 && selectedInherited && (
         <>
           <div className="section-divider" />
           <div className="rounded-xl p-6 bg-[var(--background)]">
             <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">
-              Transfer from Inherited Account
+              Withdraw from Inherited Account
             </h3>
 
-            {!selectedInherited ? (
-              <p className="text-sm text-[var(--foreground-muted)] text-center py-6">
-                Select an inherited account above to transfer from
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-[var(--foreground-muted)] uppercase tracking-wide mb-2">
-                    From Account
-                  </label>
-                  <div className="px-4 py-3 bg-[var(--surface)] rounded-lg">
-                    <p className="font-mono text-sm text-[var(--foreground)] truncate">
-                      {selectedInherited}
-                    </p>
-                    <p className="text-sm text-[var(--foreground-muted)] mt-1">
-                      Balance: {inheritedAccounts.find(a => a.address === selectedInherited)?.balance || "Unknown"}
+            <div className="space-y-4">
+              <div>
+                <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
+                  Recipient Address
+                  <Tooltip content="The account that will receive the transferable DOT." />
+                </label>
+                <input
+                  type="text"
+                  value={transferRecipient}
+                  onChange={(e) => setTransferRecipient(e.target.value)}
+                  placeholder="Enter recipient address..."
+                  className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
+                />
+              </div>
+
+              <div className="alert alert-info text-sm">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-medium">Withdrawing transferable DOT</p>
+                    <p className="opacity-90 mt-1">
+                      This will withdraw all transferable DOT from the inherited account. There may be tokens, staked, vested or other funds remaining.
                     </p>
                   </div>
                 </div>
-
-                <div>
-                  <label className="flex items-center text-sm font-medium text-[var(--foreground)] mb-2">
-                    Recipient Address
-                    <Tooltip content="The account that will receive all tokens from the inherited account" />
-                  </label>
-                  <input
-                    type="text"
-                    value={transferRecipient}
-                    onChange={(e) => setTransferRecipient(e.target.value)}
-                    placeholder="Enter recipient address..."
-                    className="focus-border-only w-full px-4 py-3 bg-[var(--surface)] rounded-lg focus:ring-2 focus:ring-[var(--polkadot-accent)]/20 transition-all text-sm text-[var(--foreground)]"
-                  />
-                </div>
-
-                <button
-                  onClick={handleTransferAll}
-                  disabled={
-                    !transferRecipient ||
-                    txStatus === "signing" ||
-                    txStatus === "submitting" ||
-                    txStatus === "in_block"
-                  }
-                  className="w-full py-3 px-4 bg-[var(--polkadot-accent)] text-white font-semibold rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
-                >
-                  {txStatus === "signing" && "Waiting for signature..."}
-                  {txStatus === "submitting" && "Submitting transaction..."}
-                  {txStatus === "in_block" && "Waiting for finalization..."}
-                  {(txStatus === "idle" || txStatus === "finalized" || txStatus === "error") &&
-                    "Transfer All"}
-                </button>
               </div>
-            )}
+
+              <button
+                onClick={handleTransfer}
+                disabled={
+                  !transferRecipient ||
+                  txStatus === TxStatusEnum.SIGNING ||
+                  txStatus === TxStatusEnum.SUBMITTING ||
+                  txStatus === TxStatusEnum.IN_BLOCK
+                }
+                className="w-full py-3 px-4 bg-[var(--polkadot-accent)] text-white font-semibold rounded-lg hover:bg-[var(--polkadot-accent-hover)] disabled:bg-[var(--grey-400)] disabled:cursor-not-allowed transition-colors"
+              >
+                {getTxButtonLabel(txStatus, "Withdraw All Funds")}
+              </button>
+            </div>
           </div>
         </>
       )}
 
       {/* Transaction Status */}
-      {txStatus !== "idle" && txStatus !== "error" && (
+      {txStatus !== TxStatusEnum.IDLE && txStatus !== TxStatusEnum.ERROR && (
         <div className="mt-6 alert alert-info">
           <div className="flex items-center gap-2">
-            {(txStatus === "signing" || txStatus === "submitting" || txStatus === "in_block") && (
+            {(txStatus === TxStatusEnum.SIGNING || txStatus === TxStatusEnum.SUBMITTING || txStatus === TxStatusEnum.IN_BLOCK) && (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
@@ -744,10 +737,7 @@ export default function InheritedPage() {
               </svg>
             )}
             <span className="text-sm">
-              {txStatus === "signing" && "Please sign the transaction in your wallet..."}
-              {txStatus === "submitting" && "Submitting transaction to the network..."}
-              {txStatus === "in_block" && "Transaction included in block, waiting for finalization..."}
-              {txStatus === "finalized" && "Transaction finalized!"}
+              {getTxStatusMessage(txStatus)}
             </span>
           </div>
           {txHash && (
