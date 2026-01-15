@@ -1,0 +1,12 @@
+{
+  "version": 0,
+  "descriptorPath": ".papi/descriptors",
+  "entries": {
+    "recovery": {
+      "wsUrl": "wss://polkadot-recovery.tasty.limo:9944",
+      "metadata": ".papi/metadata/recovery.scale",
+      "genesis": "0x2ad01e57ada323c1de442a4f77c2e27ce200146faaafed4955aa193b209efe56",
+      "codeHash": "0xd4c880eb88ebb9a7bf4844f335e942dcbe0afa36e692f3bb034b5da6a4e7c19e"
+    }
+  }
+}
