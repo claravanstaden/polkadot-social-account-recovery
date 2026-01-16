@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { ISubmittableResult } from "@polkadot/types/types";
+import { connectInjectedExtension } from "polkadot-api/pjs-signer";
 import { useNetwork } from "@/lib/NetworkContext";
-import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePapi } from "@/lib/PapiContext";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import Tooltip from "./Tooltip";
@@ -13,6 +12,7 @@ import {
   TxStatusEnum,
   getTxButtonLabel,
   getTxStatusMessage,
+  parseTxError,
 } from "@/lib/txStatus";
 
 interface FriendGroup {
@@ -46,13 +46,12 @@ const getSubscanUrl = (networkId: string, address: string): string | null => {
 export default function InheritedPage() {
   const { selectedNetwork } = useNetwork();
   const {
-    api,
+    typedApi,
     isConnecting,
     isConnected,
     error: apiError,
     connect,
-  } = usePolkadotApi();
-  const { typedApi, isConnected: papiConnected } = usePapi();
+  } = usePapi();
   const {
     wallet,
     accounts,
@@ -79,7 +78,7 @@ export default function InheritedPage() {
 
   // Fetch inherited accounts
   const fetchInheritedAccounts = useCallback(async () => {
-    if (!typedApi || !papiConnected || !selectedAccount) {
+    if (!typedApi || !isConnected || !selectedAccount) {
       setInheritedAccounts([]);
       return;
     }
@@ -97,19 +96,23 @@ export default function InheritedPage() {
 
       // Fetch balances and friend groups for each inherited account
       const accountsWithBalances: InheritedAccount[] = [];
-      const tokenDecimals = api?.registry.chainDecimals[0] || 10;
-      const tokenSymbol = api?.registry.chainTokens[0] || "DOT";
+      const tokenDecimals = selectedNetwork.tokenDecimals;
+      const tokenSymbol = selectedNetwork.tokenSymbol;
 
       for (const address of inheritedAddresses) {
         try {
-          // Fetch balance (still need to use storage query for system.account)
+          // Fetch balance using PAPI storage query
           let freeBalance = BigInt(0);
-          if (api) {
-            const accountInfo = await api.query.system.account(address);
+          try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const data = accountInfo.toJSON() as any;
-            freeBalance = BigInt(data?.data?.free || 0);
+            const accountInfo = await (
+              typedApi.query as any
+            ).System.Account.getValue(address);
+            freeBalance = BigInt(accountInfo?.data?.free || 0);
+          } catch (err) {
+            console.warn("Could not fetch balance for", address, err);
           }
+
           const balanceFormatted = (
             Number(freeBalance) / Math.pow(10, tokenDecimals)
           ).toLocaleString("en-US", {
@@ -192,7 +195,13 @@ export default function InheritedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [typedApi, papiConnected, selectedAccount, api]);
+  }, [
+    typedApi,
+    isConnected,
+    selectedAccount,
+    selectedNetwork.tokenDecimals,
+    selectedNetwork.tokenSymbol,
+  ]);
 
   // Fetch inherited accounts when connection or account changes
   useEffect(() => {
@@ -201,7 +210,7 @@ export default function InheritedPage() {
 
   // Handle transfer all from inherited account
   const handleTransfer = useCallback(async () => {
-    if (!api || !isConnected || !wallet || !selectedAccount) return;
+    if (!typedApi || !isConnected || !wallet || !selectedAccount) return;
     if (!selectedInherited || !transferRecipient) {
       showToast("Please fill in all transfer fields", "error");
       return;
@@ -211,83 +220,43 @@ export default function InheritedPage() {
     setTxStatus(TxStatusEnum.SIGNING);
 
     try {
-      const signer = wallet.signer;
+      const injectedExt = await connectInjectedExtension(wallet.extensionName);
+      const accounts = injectedExt.getAccounts();
+      const account = accounts.find((a) => a.address === selectedAccount);
+      if (!account) throw new Error("Account not found in extension");
+      const papiSigner = account.polkadotSigner;
+
+      // Create the inner transferAll call
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+      const transferCall = (typedApi.tx as any).Balances.transfer_all({
+        dest: { type: "Id", value: transferRecipient },
+        keep_alive: false,
+      }).decodedCall;
 
-      if (!recoveryPallet?.controlInheritedAccount) {
-        showToast(
-          "controlInheritedAccount method not found in recovery pallet",
-          "error",
-        );
-        setTxStatus(TxStatusEnum.ERROR);
-        return;
-      }
+      // Wrap it with control_inherited_account
+      const tx = typedApi.tx.Recovery.control_inherited_account({
+        recovered: { type: "Id", value: selectedInherited },
+        call: transferCall,
+      });
 
-      // Create the inner transferAll call with keepAlive = false
-      const transferCall = api.tx.balances.transferAll(
-        transferRecipient,
-        false,
-      );
-
-      // Wrap it with controlInheritedAccount
-      const tx = recoveryPallet.controlInheritedAccount(
-        selectedInherited,
-        transferCall,
-      );
       setTxStatus(TxStatusEnum.SUBMITTING);
 
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
-
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
-
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
-
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(
-                  dispatchError.asModule,
-                );
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast(
-                `Successfully transferred all funds from inherited account!`,
-                "success",
-              );
-              setTransferRecipient("");
-              fetchInheritedAccounts();
-            }
-
-            unsub();
-          }
-        },
+      const result = await tx.signAndSubmit(papiSigner);
+      setTxHash(result.txHash);
+      setTxStatus(TxStatusEnum.FINALIZED);
+      showToast(
+        `Successfully transferred all funds from inherited account!`,
+        "success",
       );
+      setTransferRecipient("");
+      fetchInheritedAccounts();
     } catch (err) {
       console.error("Transfer error:", err);
-      showToast(
-        err instanceof Error ? err.message : "Failed to transfer",
-        "error",
-      );
+      showToast(parseTxError(err), "error");
       setTxStatus(TxStatusEnum.ERROR);
     }
   }, [
-    api,
+    typedApi,
     isConnected,
     wallet,
     selectedAccount,
@@ -300,7 +269,7 @@ export default function InheritedPage() {
   // Handle clearing friend groups to prevent future contests
   const handleClearFriendGroups = useCallback(
     async (inheritedAddress: string) => {
-      if (!api || !isConnected || !wallet || !selectedAccount) return;
+      if (!typedApi || !isConnected || !wallet || !selectedAccount) return;
 
       // Check if there are ongoing attempts
       const account = inheritedAccounts.find(
@@ -318,80 +287,43 @@ export default function InheritedPage() {
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-        if (
-          !recoveryPallet?.controlInheritedAccount ||
-          !recoveryPallet?.setFriendGroups
-        ) {
-          showToast("Required methods not found in recovery pallet", "error");
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
+        );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
 
         // Create the inner call to clear friend groups (empty array)
-        const clearCall = recoveryPallet.setFriendGroups([]);
+        const clearCall = typedApi.tx.Recovery.set_friend_groups({
+          friend_groups: [],
+        }).decodedCall;
 
-        // Wrap it with controlInheritedAccount
-        const tx = recoveryPallet.controlInheritedAccount(
-          inheritedAddress,
-          clearCall,
-        );
+        // Wrap it with control_inherited_account
+        const tx = typedApi.tx.Recovery.control_inherited_account({
+          recovered: { type: "Id", value: inheritedAddress },
+          call: clearCall,
+        });
+
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast(
-                  "Friend groups cleared successfully! This account can no longer be contested.",
-                  "success",
-                );
-                fetchInheritedAccounts();
-              }
-
-              unsub();
-            }
-          },
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast(
+          "Friend groups cleared successfully! This account can no longer be contested.",
+          "success",
         );
+        fetchInheritedAccounts();
       } catch (err) {
         console.error("Clear friend groups error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to clear friend groups",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
     [
-      api,
+      typedApi,
       isConnected,
       wallet,
       selectedAccount,

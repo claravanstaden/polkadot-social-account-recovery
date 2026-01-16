@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { ISubmittableResult } from "@polkadot/types/types";
+import { connectInjectedExtension } from "polkadot-api/pjs-signer";
 import { useNetwork } from "@/lib/NetworkContext";
-import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePapi } from "@/lib/PapiContext";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import AttemptCard from "./shared/AttemptCard";
@@ -14,6 +13,7 @@ import {
   TxStatusEnum,
   getTxButtonLabel,
   getTxStatusMessage,
+  parseTxError,
 } from "@/lib/txStatus";
 
 interface FriendGroup {
@@ -55,13 +55,12 @@ const getSubscanUrl = (networkId: string, address: string): string | null => {
 export default function HelpRecoverPage() {
   const { selectedNetwork } = useNetwork();
   const {
-    api,
+    typedApi,
     isConnecting,
     isConnected,
     error: apiError,
     connect,
-  } = usePolkadotApi();
-  const { typedApi, isConnected: papiConnected } = usePapi();
+  } = usePapi();
   const {
     wallet,
     accounts,
@@ -90,7 +89,7 @@ export default function HelpRecoverPage() {
 
   // Fetch friend groups and attempts for the lost account
   const fetchLostAccountData = useCallback(async () => {
-    if (!typedApi || !papiConnected || !lostAccount) {
+    if (!typedApi || !isConnected || !lostAccount) {
       setFriendGroups([]);
       setAttempts([]);
       setRecoveryStatus({
@@ -110,12 +109,8 @@ export default function HelpRecoverPage() {
         if (blockResult) {
           setCurrentBlock(Number(blockResult));
         }
-      } catch {
-        // Fall back to RPC if available
-        if (api) {
-          const header = await api.rpc.chain.getHeader();
-          setCurrentBlock(header.number.toNumber());
-        }
+      } catch (err) {
+        console.warn("Could not fetch block number:", err);
       }
 
       let fetchedFriendGroups: FriendGroup[] = [];
@@ -261,7 +256,7 @@ export default function HelpRecoverPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [typedApi, papiConnected, lostAccount, api, showToast]);
+  }, [typedApi, isConnected, lostAccount, showToast]);
 
   // Fetch data when lost account changes
   useEffect(() => {
@@ -317,83 +312,47 @@ export default function HelpRecoverPage() {
   // Handle initiate attempt
   const handleInitiateAttempt = useCallback(
     async (friendGroupIndex: number) => {
-      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
+      if (
+        !typedApi ||
+        !isConnected ||
+        !wallet ||
+        !selectedAccount ||
+        !lostAccount
+      )
         return;
 
       setTxHash(null);
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-        if (!recoveryPallet?.initiateAttempt) {
-          showToast(
-            "initiateAttempt method not found in recovery pallet",
-            "error",
-          );
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
-
-        const tx = recoveryPallet.initiateAttempt(
-          lostAccount,
-          friendGroupIndex,
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
         );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
+
+        const tx = typedApi.tx.Recovery.initiate_attempt({
+          lost: { type: "Id", value: lostAccount },
+          friend_group_index: friendGroupIndex,
+        });
+
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast(
-                  "Recovery attempt initiated successfully!",
-                  "success",
-                );
-                fetchLostAccountData();
-              }
-
-              unsub();
-            }
-          },
-        );
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast("Recovery attempt initiated successfully!", "success");
+        fetchLostAccountData();
       } catch (err) {
         console.error("Initiate attempt error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to initiate attempt",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
     [
-      api,
+      typedApi,
       isConnected,
       wallet,
       selectedAccount,
@@ -406,77 +365,47 @@ export default function HelpRecoverPage() {
   // Handle approve attempt
   const handleApproveAttempt = useCallback(
     async (friendGroupIndex: number) => {
-      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
+      if (
+        !typedApi ||
+        !isConnected ||
+        !wallet ||
+        !selectedAccount ||
+        !lostAccount
+      )
         return;
 
       setTxHash(null);
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
+        );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
 
-        if (!recoveryPallet?.approveAttempt) {
-          showToast(
-            "approveAttempt method not found in recovery pallet",
-            "error",
-          );
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
+        const tx = typedApi.tx.Recovery.approve_attempt({
+          lost: { type: "Id", value: lostAccount },
+          friend_group_index: friendGroupIndex,
+        });
 
-        const tx = recoveryPallet.approveAttempt(lostAccount, friendGroupIndex);
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast("Approval submitted successfully!", "success");
-                fetchLostAccountData();
-              }
-
-              unsub();
-            }
-          },
-        );
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast("Approval submitted successfully!", "success");
+        fetchLostAccountData();
       } catch (err) {
         console.error("Approve attempt error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to approve attempt",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
     [
-      api,
+      typedApi,
       isConnected,
       wallet,
       selectedAccount,
@@ -489,80 +418,50 @@ export default function HelpRecoverPage() {
   // Handle finish attempt
   const handleFinishAttempt = useCallback(
     async (attemptIndex: number) => {
-      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
+      if (
+        !typedApi ||
+        !isConnected ||
+        !wallet ||
+        !selectedAccount ||
+        !lostAccount
+      )
         return;
 
       setTxHash(null);
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
+        );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
 
-        if (!recoveryPallet?.finishAttempt) {
-          showToast(
-            "finishAttempt method not found in recovery pallet",
-            "error",
-          );
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
+        const tx = typedApi.tx.Recovery.finish_attempt({
+          lost: { type: "Id", value: lostAccount },
+          attempt_index: attemptIndex,
+        });
 
-        const tx = recoveryPallet.finishAttempt(lostAccount, attemptIndex);
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast(
-                  "Recovery completed! The inheritor now has access to the account.",
-                  "success",
-                );
-                fetchLostAccountData();
-              }
-
-              unsub();
-            }
-          },
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast(
+          "Recovery completed! The inheritor now has access to the account.",
+          "success",
         );
+        fetchLostAccountData();
       } catch (err) {
         console.error("Finish attempt error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to finish attempt",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
     [
-      api,
+      typedApi,
       isConnected,
       wallet,
       selectedAccount,
@@ -575,80 +474,47 @@ export default function HelpRecoverPage() {
   // Handle cancel attempt (as initiator)
   const handleCancelAttempt = useCallback(
     async (attemptIndex: number) => {
-      if (!api || !isConnected || !wallet || !selectedAccount || !lostAccount)
+      if (
+        !typedApi ||
+        !isConnected ||
+        !wallet ||
+        !selectedAccount ||
+        !lostAccount
+      )
         return;
 
       setTxHash(null);
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
+        );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
 
-        if (!recoveryPallet?.cancelAttempt) {
-          showToast(
-            "cancelAttempt method not found in recovery pallet",
-            "error",
-          );
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
+        const tx = typedApi.tx.Recovery.cancel_attempt({
+          lost: { type: "Id", value: lostAccount },
+          attempt_index: attemptIndex,
+        });
 
-        const tx = recoveryPallet.cancelAttempt(lostAccount, attemptIndex);
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast(
-                  "Recovery attempt cancelled successfully!",
-                  "success",
-                );
-                fetchLostAccountData();
-              }
-
-              unsub();
-            }
-          },
-        );
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast("Recovery attempt cancelled successfully!", "success");
+        fetchLostAccountData();
       } catch (err) {
         console.error("Cancel attempt error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to cancel attempt",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
     [
-      api,
+      typedApi,
       isConnected,
       wallet,
       selectedAccount,

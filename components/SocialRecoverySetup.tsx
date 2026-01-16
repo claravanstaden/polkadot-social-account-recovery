@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { ISubmittableResult } from "@polkadot/types/types";
+import { connectInjectedExtension } from "polkadot-api/pjs-signer";
 import { useNetwork } from "@/lib/NetworkContext";
-import { usePolkadotApi } from "@/lib/usePolkadotApi";
 import { usePapi } from "@/lib/PapiContext";
 import { usePolkadotWallet } from "@/lib/PolkadotWalletContext";
 import NumberInput from "./NumberInput";
@@ -15,6 +14,7 @@ import {
   TxStatusEnum,
   getTxButtonLabel,
   getTxStatusMessage,
+  parseTxError,
 } from "@/lib/txStatus";
 
 interface FriendGroup {
@@ -47,15 +47,14 @@ const getSubscanUrl = (networkId: string, address: string): string | null => {
 };
 
 export default function SocialRecoverySetup() {
-  const { selectedNetwork, getActiveWssUrl } = useNetwork();
+  const { selectedNetwork } = useNetwork();
   const {
-    api,
+    typedApi,
     isConnecting,
     isConnected,
     error: apiError,
     connect,
-  } = usePolkadotApi();
-  const { typedApi, isConnected: papiConnected } = usePapi();
+  } = usePapi();
   const {
     wallet,
     accounts,
@@ -118,7 +117,7 @@ export default function SocialRecoverySetup() {
 
   // Fetch existing friend groups from chain
   const fetchExistingFriendGroups = useCallback(async () => {
-    if (!typedApi || !papiConnected || !selectedAccount) {
+    if (!typedApi || !isConnected || !selectedAccount) {
       setExistingFriendGroups(null);
       return;
     }
@@ -154,7 +153,7 @@ export default function SocialRecoverySetup() {
     } finally {
       setIsLoadingExisting(false);
     }
-  }, [typedApi, papiConnected, selectedAccount]);
+  }, [typedApi, isConnected, selectedAccount]);
 
   // Fetch existing friend groups when account or connection changes
   useEffect(() => {
@@ -163,7 +162,7 @@ export default function SocialRecoverySetup() {
 
   // Fetch attempts on this account
   const fetchAttemptsOnAccount = useCallback(async () => {
-    if (!typedApi || !papiConnected || !selectedAccount) {
+    if (!typedApi || !isConnected || !selectedAccount) {
       setAttemptsOnAccount([]);
       return;
     }
@@ -177,12 +176,8 @@ export default function SocialRecoverySetup() {
         if (blockResult) {
           setCurrentBlock(Number(blockResult));
         }
-      } catch {
-        // Fall back to RPC if available
-        if (api) {
-          const header = await api.rpc.chain.getHeader();
-          setCurrentBlock(header.number.toNumber());
-        }
+      } catch (err) {
+        console.warn("Could not fetch block number:", err);
       }
 
       const result = await typedApi.view.Recovery.attempts(selectedAccount);
@@ -240,7 +235,7 @@ export default function SocialRecoverySetup() {
     } finally {
       setIsLoadingAttempts(false);
     }
-  }, [typedApi, papiConnected, selectedAccount, api]);
+  }, [typedApi, isConnected, selectedAccount]);
 
   // Fetch attempts when account or connection changes
   useEffect(() => {
@@ -250,78 +245,46 @@ export default function SocialRecoverySetup() {
   // Handle cancel attempt
   const handleCancelAttempt = useCallback(
     async (attemptIndex: number) => {
-      if (!api || !isConnected || !wallet || !selectedAccount) return;
+      if (!typedApi || !isConnected || !wallet || !selectedAccount) return;
 
       setTxHash(null);
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
+        );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
 
-        if (!recoveryPallet?.cancelAttempt) {
-          showToast(
-            "cancelAttempt method not found in recovery pallet",
-            "error",
-          );
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
+        const tx = typedApi.tx.Recovery.cancel_attempt({
+          lost: { type: "Id", value: selectedAccount },
+          attempt_index: attemptIndex,
+        });
 
-        const tx = recoveryPallet.cancelAttempt(selectedAccount, attemptIndex);
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast(
-                  "Recovery attempt cancelled successfully!",
-                  "success",
-                );
-                fetchAttemptsOnAccount();
-              }
-
-              unsub();
-            }
-          },
-        );
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast("Recovery attempt cancelled successfully!", "success");
+        fetchAttemptsOnAccount();
       } catch (err) {
         console.error("Cancel attempt error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to cancel attempt",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
-    [api, isConnected, wallet, selectedAccount, fetchAttemptsOnAccount],
+    [
+      typedApi,
+      isConnected,
+      wallet,
+      selectedAccount,
+      fetchAttemptsOnAccount,
+      showToast,
+    ],
   );
 
   // Handle slash attempt
@@ -335,78 +298,48 @@ export default function SocialRecoverySetup() {
         return;
       }
 
-      if (!api || !isConnected || !wallet || !selectedAccount) return;
+      if (!typedApi || !isConnected || !wallet || !selectedAccount) return;
 
       setTxHash(null);
       setTxStatus(TxStatusEnum.SIGNING);
 
       try {
-        const signer = wallet.signer;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const apiTx = api.tx as any;
-        const recoveryPallet =
-          apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
+        const injectedExt = await connectInjectedExtension(
+          wallet.extensionName,
+        );
+        const accounts = injectedExt.getAccounts();
+        const account = accounts.find((a) => a.address === selectedAccount);
+        if (!account) throw new Error("Account not found in extension");
+        const papiSigner = account.polkadotSigner;
 
-        if (!recoveryPallet?.slashAttempt) {
-          showToast(
-            "slashAttempt method not found in recovery pallet",
-            "error",
-          );
-          setTxStatus(TxStatusEnum.ERROR);
-          return;
-        }
+        const tx = typedApi.tx.Recovery.slash_attempt({
+          attempt_index: attemptIndex,
+        });
 
-        const tx = recoveryPallet.slashAttempt(attemptIndex);
         setTxStatus(TxStatusEnum.SUBMITTING);
 
-        const unsub = await tx.signAndSend(
-          selectedAccount,
-          { signer },
-          (result: ISubmittableResult) => {
-            const { status, txHash: hash, dispatchError } = result;
-            setTxHash(hash.toHex());
-
-            if (status.isInBlock) {
-              setTxStatus(TxStatusEnum.IN_BLOCK);
-            }
-
-            if (status.isFinalized) {
-              setTxStatus(TxStatusEnum.FINALIZED);
-
-              if (dispatchError) {
-                let errorMessage = "Transaction failed";
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule,
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-                } else {
-                  errorMessage = dispatchError.toString();
-                }
-                showToast(errorMessage, "error");
-                setTxStatus(TxStatusEnum.ERROR);
-              } else {
-                showToast(
-                  "Recovery attempt slashed! The initiator's deposit has been burned.",
-                  "success",
-                );
-                fetchAttemptsOnAccount();
-              }
-
-              unsub();
-            }
-          },
+        const result = await tx.signAndSubmit(papiSigner);
+        setTxHash(result.txHash);
+        setTxStatus(TxStatusEnum.FINALIZED);
+        showToast(
+          "Recovery attempt slashed! The initiator's deposit has been burned.",
+          "success",
         );
+        fetchAttemptsOnAccount();
       } catch (err) {
         console.error("Slash attempt error:", err);
-        showToast(
-          err instanceof Error ? err.message : "Failed to slash attempt",
-          "error",
-        );
+        showToast(parseTxError(err), "error");
         setTxStatus(TxStatusEnum.ERROR);
       }
     },
-    [api, isConnected, wallet, selectedAccount, fetchAttemptsOnAccount],
+    [
+      typedApi,
+      isConnected,
+      wallet,
+      selectedAccount,
+      fetchAttemptsOnAccount,
+      showToast,
+    ],
   );
 
   const addFriendGroup = () => {
@@ -486,7 +419,7 @@ export default function SocialRecoverySetup() {
       return;
     }
 
-    if (!api || !isConnected) {
+    if (!typedApi || !isConnected) {
       showToast(
         'Not connected to network. Please wait for connection or click "Connect to Network".',
         "error",
@@ -561,11 +494,9 @@ export default function SocialRecoverySetup() {
     // Sort friends alphabetically as required by the pallet
     // Use array index as inheritance_order (position in list = priority)
     // Convert deposit from human-readable to chain format (10 or 12 decimals)
-    const tokenDecimals = api.registry.chainDecimals[0];
+    const tokenDecimals = selectedNetwork.tokenDecimals;
     const friendGroupsData = friendGroups.map((group, index) => ({
-      deposit: BigInt(
-        Math.round(group.deposit * Math.pow(10, tokenDecimals)),
-      ).toString(),
+      deposit: BigInt(Math.round(group.deposit * Math.pow(10, tokenDecimals))),
       friends: group.friends.filter((f) => f.trim() !== "").sort(),
       friends_needed: group.friends_needed,
       inheritor: group.inheritor,
@@ -577,95 +508,37 @@ export default function SocialRecoverySetup() {
     try {
       setTxStatus(TxStatusEnum.SIGNING);
 
-      // Get the signer from the wallet
-      const signer = wallet.signer;
+      const injectedExt = await connectInjectedExtension(wallet.extensionName);
+      const accounts = injectedExt.getAccounts();
+      const account = accounts.find((a) => a.address === selectedAccount);
+      if (!account) throw new Error("Account not found in extension");
+      const papiSigner = account.polkadotSigner;
 
-      // Find the recovery pallet - try various possible names
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-      if (!recoveryPallet) {
-        const chainName = await api.rpc.system.chain();
-        showToast(
-          `Recovery pallet not found on chain "${chainName}". Please verify you're connected to a chain with the recovery pallet.`,
-          "error",
-        );
-        setTxStatus(TxStatusEnum.ERROR);
-        return;
-      }
-
-      if (!recoveryPallet.setFriendGroups) {
-        showToast(
-          "setFriendGroups method not found in recovery pallet.",
-          "error",
-        );
-        setTxStatus(TxStatusEnum.ERROR);
-        return;
-      }
-
-      // Create the extrinsic
-      const tx = recoveryPallet.setFriendGroups(friendGroupsData);
+      const tx = typedApi.tx.Recovery.set_friend_groups({
+        friend_groups: friendGroupsData,
+      });
 
       setTxStatus(TxStatusEnum.SUBMITTING);
 
-      // Sign and send the transaction
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
-
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
-
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
-
-            // Check for dispatch error
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(
-                  dispatchError.asModule,
-                );
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast("Social recovery configured successfully!", "success");
-              // Refresh existing friend groups and close form
-              fetchExistingFriendGroups();
-              setIsFormVisible(false);
-            }
-
-            unsub();
-          }
-        },
-      );
+      const result = await tx.signAndSubmit(papiSigner);
+      setTxHash(result.txHash);
+      setTxStatus(TxStatusEnum.FINALIZED);
+      showToast("Social recovery configured successfully!", "success");
+      fetchExistingFriendGroups();
+      setIsFormVisible(false);
     } catch (err) {
       console.error("Transaction error:", err);
-      showToast(
-        err instanceof Error ? err.message : "Failed to submit transaction",
-        "error",
-      );
+      showToast(parseTxError(err), "error");
       setTxStatus(TxStatusEnum.ERROR);
     }
   }, [
     selectedAccount,
-    api,
+    typedApi,
     isConnected,
     wallet,
     walletSelectedAccount,
     friendGroups,
+    selectedNetwork.tokenDecimals,
     fetchExistingFriendGroups,
     showToast,
   ]);
@@ -686,7 +559,7 @@ export default function SocialRecoverySetup() {
       return;
     }
 
-    if (!api || !isConnected) {
+    if (!typedApi || !isConnected) {
       showToast("Not connected to network", "error");
       return;
     }
@@ -699,70 +572,32 @@ export default function SocialRecoverySetup() {
     try {
       setTxStatus(TxStatusEnum.SIGNING);
 
-      const signer = wallet.signer;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apiTx = api.tx as any;
-      const recoveryPallet =
-        apiTx.recovery || apiTx.socialRecovery || apiTx.social_recovery;
-
-      if (!recoveryPallet || !recoveryPallet.setFriendGroups) {
-        showToast("Recovery pallet not found", "error");
-        setTxStatus(TxStatusEnum.ERROR);
-        return;
-      }
+      const injectedExt = await connectInjectedExtension(wallet.extensionName);
+      const accounts = injectedExt.getAccounts();
+      const account = accounts.find((a) => a.address === selectedAccount);
+      if (!account) throw new Error("Account not found in extension");
+      const papiSigner = account.polkadotSigner;
 
       // Pass empty array to delete all friend groups
-      const tx = recoveryPallet.setFriendGroups([]);
+      const tx = typedApi.tx.Recovery.set_friend_groups({
+        friend_groups: [],
+      });
 
       setTxStatus(TxStatusEnum.SUBMITTING);
 
-      const unsub = await tx.signAndSend(
-        selectedAccount,
-        { signer },
-        (result: ISubmittableResult) => {
-          const { status, txHash: hash, dispatchError } = result;
-          setTxHash(hash.toHex());
-
-          if (status.isInBlock) {
-            setTxStatus(TxStatusEnum.IN_BLOCK);
-          }
-
-          if (status.isFinalized) {
-            setTxStatus(TxStatusEnum.FINALIZED);
-
-            if (dispatchError) {
-              let errorMessage = "Transaction failed";
-              if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(
-                  dispatchError.asModule,
-                );
-                errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
-              } else {
-                errorMessage = dispatchError.toString();
-              }
-              showToast(errorMessage, "error");
-              setTxStatus(TxStatusEnum.ERROR);
-            } else {
-              showToast("Friend groups deleted successfully!", "success");
-              fetchExistingFriendGroups();
-            }
-
-            unsub();
-          }
-        },
-      );
+      const result = await tx.signAndSubmit(papiSigner);
+      setTxHash(result.txHash);
+      setTxStatus(TxStatusEnum.FINALIZED);
+      showToast("Friend groups deleted successfully!", "success");
+      fetchExistingFriendGroups();
     } catch (err) {
       console.error("Transaction error:", err);
-      showToast(
-        err instanceof Error ? err.message : "Failed to submit transaction",
-        "error",
-      );
+      showToast(parseTxError(err), "error");
       setTxStatus(TxStatusEnum.ERROR);
     }
   }, [
     selectedAccount,
-    api,
+    typedApi,
     isConnected,
     wallet,
     walletSelectedAccount,
