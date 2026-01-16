@@ -3,7 +3,7 @@
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { NetworkProvider } from "@/lib/NetworkContext";
-import { PolkadotApiProvider } from "@/lib/PolkadotApiContext";
+import { PapiProvider } from "@/lib/PapiContext";
 import { PolkadotWalletProvider } from "@/lib/PolkadotWalletContext";
 import { ThemeProvider } from "@/lib/ThemeContext";
 import { ToastProvider } from "@/components/Toast";
@@ -39,11 +39,11 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <NetworkProvider>
-            <PolkadotApiProvider>
+            <PapiProvider>
               <PolkadotWalletProvider>
                 <ToastProvider>{children}</ToastProvider>
               </PolkadotWalletProvider>
-            </PolkadotApiProvider>
+            </PapiProvider>
           </NetworkProvider>
         </ThemeProvider>
       </body>
